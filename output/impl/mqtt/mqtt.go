@@ -104,8 +104,8 @@ func (mo *mqttOutput) Close(ctx context.Context) error {
 }
 
 func init() {
-	err := output.RegisterOutput("mqtt", func(ctx context.Context, config *config.Mqtt) (output.Output, error) {
-		return NewMqttOutput(ctx, config)
+	err := output.RegisterOutput("mqtt", func(ctx context.Context, config *config.Output) (output.Output, error) {
+		return NewMqttOutput(ctx, config.Mqtt)
 	})
 	if err != nil {
 		panic(err)

@@ -15,12 +15,30 @@ sensors:
         connectRetryDelay: 5s
     outputs:
       - mqtt:
+          enabled: true
           topic: sensors/LYWSD03MMC/{{index .Properties "deviceName" }}/{{index .Properties "unit" | ToLower }}
           brokerUrls:
            - tcp://localhost:1883
           clientId: LYWSD03MMC_Publisher
           keepAlive: 5
           connectRetryDelay: 5s
+      - influxdb2:
+          enabled: false
+          url: "http://localhost:8086/"
+          authToken: ""
+          organizationId: ""
+          bucket: sensors
+          measurement: "{{ index .Properties \"unit\" }}"
+          useGZip: true
+          batchSize: 1
+          tagMapping:
+            name: "{{ index .Properties \"deviceName\" }}"
+            type: "{{ index .Properties \"deviceType\" }}"
+            macAddress: "{{ index .Properties \"deviceMacAddress\" }}"
+            unit: "{{ index .Properties \"unit\" }}"
+          fieldMapping:
+            unit: "{{ index .Properties \"unit\" }}"
+            value: "{{ index .Properties \"value\" | ToNumber }}"
     devices:
       - name: Your Sensor
         type: LYWSD03MMC

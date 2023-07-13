@@ -17,7 +17,7 @@ var (
 	outputsLock sync.RWMutex
 )
 
-func NewOutput(ctx context.Context, outputName string, config *config.Mqtt) (Output, error) {
+func NewOutput(ctx context.Context, outputName string, config *config.Output) (Output, error) {
 	outputsLock.RLock()
 	defer outputsLock.RUnlock()
 
