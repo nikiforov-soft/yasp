@@ -16,6 +16,9 @@ builds:
     goarch:
       - amd64
       - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
   - id: docker-release
     binary: app
     ldflags: -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}} -extldflags "-static"
@@ -37,13 +40,16 @@ changelog:
       - Merge pull request
       - Merge branch
 archives:
-  - name_template: >-
+  - rlcp: true
+    name_template: >-
       {{ .ProjectName }}_
       {{- if eq .Os "darwin" }}macOS_
       {{- else }}{{- title .Os }}_{{ end }}
       {{- .Arch }}
     builds:
       - release
+    files:
+      - config.dist.yaml
     format_overrides:
       - goos: windows
         format: zip
