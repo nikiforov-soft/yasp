@@ -1,0 +1,75 @@
+project_name: yasp
+release:
+  github:
+    owner: nikiforov-soft
+    name: yasp
+  name_template: '{{.Tag}}'
+builds:
+  - id: release
+    ldflags: -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}} -extldflags "-static"
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - windows
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+  - id: docker-release
+    binary: app
+    ldflags: -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}} -extldflags "-static"
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+checksum:
+  name_template: '{{ .ProjectName }}_checksums.txt'
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - Merge pull request
+      - Merge branch
+archives:
+  - name_template: >-
+      {{ .ProjectName }}_
+      {{- if eq .Os "darwin" }}macOS_
+      {{- else }}{{- title .Os }}_{{ end }}
+      {{- .Arch }}
+    builds:
+      - release
+    format_overrides:
+      - goos: windows
+        format: zip
+dockers:
+  - id: docker-build-amd64
+    ids:
+      - docker-release
+    image_templates:
+      - 'docker.pkg.github.com/nikiforov-soft/yasp/app:{{ .Version }}'
+      - 'docker.pkg.github.com/nikiforov-soft/yasp/app:latest'
+    dockerfile: .goreleaser.Dockerfile
+    goos: linux
+    goarch: amd64
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.description=Nikiforov Soft Office app"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=com.github.actions.name={{.ProjectName}}"
+      - "--label=com.github.actions.description=Deliver Go binaries as fast and easily as possible"
+      - "--label=com.github.actions.icon=terminal"
+      - "--label=com.github.actions.color=blue"
+      - "--label=repository=https://github.com/nikiforov-soft/yasp"
+      - "--label=homepage=https://github.com/nikiforov-soft/yasp"
+      - "--label=maintainer=Rumen Nikiforov <rumen@nikiforov.software>"
