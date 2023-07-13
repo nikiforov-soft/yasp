@@ -1,0 +1,9 @@
+version: "3"
+
+services:
+  app:
+    image: gcr.io/unafraid/yasp/app:latest
+    container_name: yasp
+    restart: unless-stopped
+    volumes:
+      - "./config.yaml:/config.yaml"
