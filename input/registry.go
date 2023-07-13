@@ -17,7 +17,7 @@ var (
 	inputsLock sync.RWMutex
 )
 
-func NewInput(ctx context.Context, inputName string, config *config.Mqtt) (Input, error) {
+func NewInput(ctx context.Context, inputName string, config *config.Input) (Input, error) {
 	inputsLock.RLock()
 	defer inputsLock.RUnlock()
 

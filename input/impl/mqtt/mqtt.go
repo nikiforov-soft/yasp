@@ -125,8 +125,8 @@ func (mi *mqttInput) messageHandler(publish *paho.Publish) {
 }
 
 func init() {
-	err := input.RegisterInput("mqtt", func(ctx context.Context, config *config.Mqtt) (input.Input, error) {
-		return NewMqttInput(ctx, config)
+	err := input.RegisterInput("mqtt", func(ctx context.Context, config *config.Input) (input.Input, error) {
+		return NewMqttInput(ctx, config.Mqtt)
 	})
 	if err != nil {
 		panic(err)

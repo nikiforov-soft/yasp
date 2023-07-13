@@ -6,6 +6,7 @@ import (
 )
 
 type Mqtt struct {
+	Enabled           bool          `yaml:"enabled"`
 	Topic             string        `yaml:"topic"`
 	BrokerUrls        []*Url        `yaml:"brokerUrls"`
 	ClientId          string        `yaml:"clientId"`

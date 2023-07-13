@@ -48,7 +48,7 @@ func (s *service) init(ctx context.Context, sensorsConfig []*config.Sensor) erro
 		var sensors []sensor.Sensor
 		var err error
 		if mqtt := sensorConfig.Input.Mqtt; mqtt != nil {
-			inputImpl, err = input.NewInput(ctx, "mqtt", mqtt)
+			inputImpl, err = input.NewInput(ctx, "mqtt", sensorConfig.Input)
 			if err != nil {
 				return fmt.Errorf("process: failed to initialize input: %w", err)
 			}
@@ -64,10 +64,16 @@ func (s *service) init(ctx context.Context, sensorsConfig []*config.Sensor) erro
 
 		for _, o := range sensorConfig.Outputs {
 			var outputContainer outputGroup
-			if mqtt := o.Mqtt; mqtt != nil {
-				outputImpl, err := output.NewOutput(ctx, "mqtt", mqtt)
+			if mqtt := o.Mqtt; mqtt != nil && mqtt.Enabled {
+				outputImpl, err := output.NewOutput(ctx, "mqtt", o)
 				if err != nil {
-					return fmt.Errorf("process: failed to initialize output: %w", err)
+					return fmt.Errorf("process: failed to initialize mqtt output: %w", err)
+				}
+				outputContainer.Output = outputImpl
+			} else if influxdb2 := o.InfluxDb2; influxdb2 != nil && influxdb2.Enabled {
+				outputImpl, err := output.NewOutput(ctx, "influxdb2", o)
+				if err != nil {
+					return fmt.Errorf("process: failed to initialize influxdb2 output: %w", err)
 				}
 				outputContainer.Output = outputImpl
 			}
@@ -146,7 +152,7 @@ func (s *service) handleSensor(ctx context.Context, sg *sensorGroup) {
 			for _, sensorImpl := range sg.sensors {
 				decodedData, err := sensorImpl.Decode(ctx, sg.config, inputData.Data)
 				if err != nil {
-					logrus.WithError(err).Error("process: failed to decode data: %w", err)
+					logrus.WithError(err).Error("process: failed to decode data")
 					continue
 				}
 				if decodedData == nil {
@@ -158,7 +164,7 @@ func (s *service) handleSensor(ctx context.Context, sg *sensorGroup) {
 					for _, transform := range og.OutputTransforms {
 						data, err := transform.Transform(ctx, outputData)
 						if err != nil {
-							logrus.WithError(err).Error("process: failed to transform input data: %w", err)
+							logrus.WithError(err).Error("process: failed to transform input data")
 							continue
 						}
 						outputData = data
@@ -169,7 +175,7 @@ func (s *service) handleSensor(ctx context.Context, sg *sensorGroup) {
 						Properties: decodedData.Properties,
 					})
 					if err != nil {
-						logrus.WithError(err).Error("process: failed to publish output data: %w", err)
+						logrus.WithError(err).Error("process: failed to publish output data")
 						continue
 					}
 				}

@@ -6,4 +6,4 @@ import (
 	"github.com/nikiforov-soft/yasp/config"
 )
 
-type Factory func(ctx context.Context, config *config.Mqtt) (Output, error)
+type Factory func(ctx context.Context, config *config.Output) (Output, error)
