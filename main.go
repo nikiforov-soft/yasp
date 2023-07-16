@@ -14,21 +14,29 @@ import (
 	"go.uber.org/automaxprocs/maxprocs"
 
 	// Side effect imports
+	_ "github.com/nikiforov-soft/yasp/device/impl"
 	_ "github.com/nikiforov-soft/yasp/input/impl"
 	_ "github.com/nikiforov-soft/yasp/input/transform/impl"
 	_ "github.com/nikiforov-soft/yasp/output/impl"
 	_ "github.com/nikiforov-soft/yasp/output/transform/impl"
-	_ "github.com/nikiforov-soft/yasp/sensor/impl"
+)
+
+var (
+	Version string = "dev"
+	Commit  string = "HEAD"
+	Date    string = time.Now().Format(time.RFC3339)
 )
 
 var (
 	configPath string
+	verbose    bool
 )
 
 func main() {
 	flag.StringVar(&configPath, "config", "./config.yaml", "Path to the config.yaml")
+	flag.BoolVar(&verbose, "verbose", false, "Enables debug logging")
 	flag.Parse()
-	started := time.Now()
+
 	logrus.SetFormatter(&logrus.JSONFormatter{
 		FieldMap: logrus.FieldMap{
 			logrus.FieldKeyTime:  "timestamp",
@@ -37,6 +45,15 @@ func main() {
 		},
 		TimestampFormat: time.RFC3339,
 	})
+	if verbose {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
+
+	logrus.
+		WithField("version", Version).
+		WithField("commit", Commit).
+		WithField("date", Date).
+		Info("initializing...")
 
 	if _, err := maxprocs.Set(maxprocs.Logger(logrus.Printf)); err != nil {
 		logrus.
@@ -71,8 +88,6 @@ func main() {
 			Error("failed to initialize process service")
 		return
 	}
-
-	logrus.Infof("initialization completed in %s", time.Since(started).String())
 
 	shutdownChan := make(chan os.Signal, 1)
 	signal.Notify(shutdownChan, syscall.SIGTERM, syscall.SIGINT)

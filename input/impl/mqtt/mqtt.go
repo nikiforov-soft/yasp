@@ -15,23 +15,20 @@ import (
 )
 
 type mqttInput struct {
-	config                 *config.Mqtt
+	config                 *config.MqttInput
 	connectionManagers     []*autopaho.ConnectionManager
 	connectionManagersLock sync.Mutex
 	activeChannels         []chan *input.Data
 	activeChannelsLock     sync.Mutex
 }
 
-func NewMqttInput(_ context.Context, config *config.Mqtt) (input.Input, error) {
+func NewMqttInput(_ context.Context, config *config.MqttInput) (input.Input, error) {
 	return &mqttInput{
 		config: config,
 	}, nil
 }
 
-func (mi *mqttInput) Subscribe(ctx context.Context) (chan *input.Data, error) {
-	mi.activeChannelsLock.Lock()
-	defer mi.activeChannelsLock.Unlock()
-
+func (mi *mqttInput) Subscribe(ctx context.Context) (<-chan *input.Data, error) {
 	keepAlive := mi.config.KeepAlive
 	if keepAlive == 0 {
 		keepAlive = 5
@@ -47,10 +44,16 @@ func (mi *mqttInput) Subscribe(ctx context.Context) (chan *input.Data, error) {
 		ConnectRetryDelay: connectRetryDelay,
 		OnConnectionUp: func(cm *autopaho.ConnectionManager, connAck *paho.Connack) {
 			logrus.Info("mqtt input: connected to mqtt server")
+
+			subscriptions := make(map[string]paho.SubscribeOptions, len(mi.config.Topics))
+			for _, topic := range mi.config.Topics {
+				subscriptions[topic] = paho.SubscribeOptions{
+					QoS: 0,
+				}
+			}
+
 			if _, err := cm.Subscribe(ctx, &paho.Subscribe{
-				Subscriptions: map[string]paho.SubscribeOptions{
-					mi.config.Topic: {QoS: 0},
-				},
+				Subscriptions: subscriptions,
 			}); err != nil {
 				logrus.
 					WithError(err).
@@ -58,7 +61,7 @@ func (mi *mqttInput) Subscribe(ctx context.Context) (chan *input.Data, error) {
 				return
 			}
 			logrus.
-				WithField("topic", mi.config.Topic).
+				WithField("topics", mi.config.Topics).
 				Info("mqtt input: mqtt subscribed")
 		},
 		OnConnectError: func(err error) { logrus.WithError(err).Error("mqtt input: failed to connect to server") },
@@ -74,6 +77,9 @@ func (mi *mqttInput) Subscribe(ctx context.Context) (chan *input.Data, error) {
 			},
 		},
 	}
+
+	mi.activeChannelsLock.Lock()
+	defer mi.activeChannelsLock.Unlock()
 
 	connectionManager, err := autopaho.NewConnection(ctx, clientConfig)
 	if err != nil {

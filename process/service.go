@@ -8,11 +8,11 @@ import (
 	"sync"
 
 	"github.com/nikiforov-soft/yasp/config"
+	"github.com/nikiforov-soft/yasp/device"
 	"github.com/nikiforov-soft/yasp/input"
 	inputtransform "github.com/nikiforov-soft/yasp/input/transform"
 	"github.com/nikiforov-soft/yasp/output"
 	outputtransform "github.com/nikiforov-soft/yasp/output/transform"
-	"github.com/nikiforov-soft/yasp/sensor"
 	"github.com/sirupsen/logrus"
 )
 
@@ -45,7 +45,7 @@ func (s *service) init(ctx context.Context, sensorsConfig []*config.Sensor) erro
 		var inputImpl input.Input
 		var inputTransforms []inputtransform.Transform
 		var outputs []outputGroup
-		var sensors []sensor.Sensor
+		var devices []device.Device
 		var err error
 		if mqtt := sensorConfig.Input.Mqtt; mqtt != nil {
 			inputImpl, err = input.NewInput(ctx, "mqtt", sensorConfig.Input)
@@ -93,12 +93,12 @@ func (s *service) init(ctx context.Context, sensorsConfig []*config.Sensor) erro
 			outputs = append(outputs, outputContainer)
 		}
 
-		for _, device := range sensorConfig.Devices {
-			sensorImpl, err := sensor.NewSensor(ctx, device)
+		for _, dev := range sensorConfig.Devices {
+			deviceImpl, err := device.NewDevice(ctx, dev)
 			if err != nil {
-				return fmt.Errorf("process: failed to initialize sensor: %s - %w", device.Name, err)
+				return fmt.Errorf("process: failed to initialize device: %s - %w", dev.Name, err)
 			}
-			sensors = append(sensors, sensorImpl)
+			devices = append(devices, deviceImpl)
 		}
 
 		sg := &sensorGroup{
@@ -106,7 +106,7 @@ func (s *service) init(ctx context.Context, sensorsConfig []*config.Sensor) erro
 			input:           inputImpl,
 			inputTransforms: inputTransforms,
 			outputs:         outputs,
-			sensors:         sensors,
+			devices:         devices,
 		}
 
 		go s.handleSensor(ctx, sg)
@@ -149,10 +149,10 @@ func (s *service) handleSensor(ctx context.Context, sg *sensorGroup) {
 				inputData.Data = data
 			}
 
-			for _, sensorImpl := range sg.sensors {
-				decodedData, err := sensorImpl.Decode(ctx, sg.config, inputData.Data)
+			for _, deviceImpl := range sg.devices {
+				decodedData, err := deviceImpl.Decode(ctx, inputData.Data)
 				if err != nil {
-					logrus.WithError(err).Error("process: failed to decode data")
+					logrus.WithError(err).Error("process: failed to decode device data")
 					continue
 				}
 				if decodedData == nil {
