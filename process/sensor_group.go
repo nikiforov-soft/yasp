@@ -5,9 +5,9 @@ import (
 	"errors"
 
 	"github.com/nikiforov-soft/yasp/config"
+	"github.com/nikiforov-soft/yasp/device"
 	"github.com/nikiforov-soft/yasp/input"
 	inputtransform "github.com/nikiforov-soft/yasp/input/transform"
-	"github.com/nikiforov-soft/yasp/sensor"
 )
 
 type sensorGroup struct {
@@ -15,7 +15,7 @@ type sensorGroup struct {
 	input           input.Input
 	inputTransforms []inputtransform.Transform
 	outputs         []outputGroup
-	sensors         []sensor.Sensor
+	devices         []device.Device
 }
 
 func (sg *sensorGroup) Close() error {

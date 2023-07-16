@@ -1,7 +1,7 @@
 package config
 
 type Output struct {
-	Mqtt       *Mqtt        `yaml:"mqtt"`
+	Mqtt       *MqttOutput  `yaml:"mqtt"`
 	InfluxDb2  *InfluxDb2   `yaml:"influxdb2"`
 	Transforms []*Transform `yaml:"transforms"`
 }

@@ -26,11 +26,11 @@ var (
 )
 
 type mqttOutput struct {
-	config            *config.Mqtt
+	config            *config.MqttOutput
 	connectionManager *autopaho.ConnectionManager
 }
 
-func NewMqttOutput(ctx context.Context, config *config.Mqtt) (output.Output, error) {
+func NewMqttOutput(ctx context.Context, config *config.MqttOutput) (output.Output, error) {
 	keepAlive := config.KeepAlive
 	if keepAlive == 0 {
 		keepAlive = 5

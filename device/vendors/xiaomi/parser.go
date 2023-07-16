@@ -13,6 +13,10 @@ import (
 	"github.com/pschlump/AesCCM"
 )
 
+var (
+	ErrBindKeyRequired = errors.New("bind key required")
+)
+
 func ParseBLEFrame(rawData []byte, bindKeyCallback func(mac string) ([]byte, error)) (*Frame, error) {
 	reader := bufio.NewReader(bytes.NewReader(rawData))
 	frameControl, version, err := parseFrameControlAndVersion(reader)
@@ -169,7 +173,7 @@ func parseCapabilities(reader io.Reader) (CapabilityFlags, error) {
 
 func parseEncryptedPayload(data, bindKey []byte, eventOffset int) ([]byte, error) {
 	if len(bindKey) == 0 {
-		return nil, errors.New("bind key required")
+		return nil, ErrBindKeyRequired
 	}
 
 	msgLength := len(data)
