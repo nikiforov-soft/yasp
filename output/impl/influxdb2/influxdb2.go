@@ -14,6 +14,7 @@ import (
 	"github.com/influxdata/influxdb-client-go/v2/domain"
 	"github.com/nikiforov-soft/yasp/config"
 	"github.com/nikiforov-soft/yasp/output"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -65,30 +66,31 @@ func newInfluxDb2(ctx context.Context, config *config.InfluxDb2) (*influxdb, err
 
 	ping, err := client.Ping(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("influxdb2: failed to ping server: %w", err)
+		return nil, fmt.Errorf("influxdb2 output: failed to ping server: %w", err)
 	}
 
 	if !ping {
-		return nil, errors.New("influxdb2: failed to ping server")
+		return nil, errors.New("influxdb2 output: failed to ping server")
 	}
 
 	health, err := client.Health(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("influxdb2: failed to health check: %w", err)
+		return nil, fmt.Errorf("influxdb2 output: failed to health check: %w", err)
 	}
 
 	if health.Status != domain.HealthCheckStatusPass {
-		return nil, fmt.Errorf("influxdb2: influxdb is not ready: %s", health.Status)
+		return nil, fmt.Errorf("influxdb2 output: influxdb is not ready: %s", health.Status)
 	}
 
 	ready, err := client.Ready(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("influxdb2: failed to ready check: %w", err)
+		return nil, fmt.Errorf("influxdb2 output: failed to ready check: %w", err)
 	}
 
 	if ready.Status == nil || *ready.Status != domain.ReadyStatusReady {
-		return nil, fmt.Errorf("influxdb2: server is not ready: %+v", ready.Status)
+		return nil, fmt.Errorf("influxdb2 output: server is not ready: %+v", ready.Status)
 	}
+	logrus.Info("influxdb2 output: connected to the server")
 
 	return &influxdb{
 		config: config,
@@ -96,8 +98,9 @@ func newInfluxDb2(ctx context.Context, config *config.InfluxDb2) (*influxdb, err
 	}, nil
 }
 
-func (i *influxdb) Publish(_ context.Context, data *output.Data) error {
-	writeApi := i.client.WriteAPI(i.config.OrganizationId, i.config.Bucket)
+func (i *influxdb) Publish(ctx context.Context, data *output.Data) error {
+	writeApi := i.client.WriteAPIBlocking(i.config.OrganizationId, i.config.Bucket)
+
 	measurement, err := templateProcess("measurement", i.config.Measurement, data)
 	if err != nil {
 		return err
@@ -132,7 +135,7 @@ func (i *influxdb) Publish(_ context.Context, data *output.Data) error {
 		if isNumber(value) {
 			float64Value, err := asNumber(value)
 			if err != nil {
-				return fmt.Errorf("failed to parse %s as number: %w", string(value), err)
+				return fmt.Errorf("influxdb2 output: failed to parse %s as number: %w", string(value), err)
 			}
 			point.AddField(fieldKey, float64Value)
 			continue
@@ -141,20 +144,21 @@ func (i *influxdb) Publish(_ context.Context, data *output.Data) error {
 		point.AddField(fieldKey, value)
 	}
 
-	writeApi.WritePoint(point)
-	writeApi.Flush()
+	if err := writeApi.WritePoint(ctx, point); err != nil {
+		return fmt.Errorf("influxdb2 output: failed to write point: %w", err)
+	}
 	return nil
 }
 
 func templateProcess(templateKey string, templateValue string, data any) ([]byte, error) {
 	tmpl, err := template.New(templateKey).Funcs(funcsMap).Parse(templateValue)
 	if err != nil {
-		return nil, fmt.Errorf("influxdb2: failed to parse glob: %w", err)
+		return nil, fmt.Errorf("influxdb2 output: failed to parse glob: %w", err)
 	}
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
-		return nil, fmt.Errorf("influxdb2: failed to execute %s mapping template: - %w", templateKey, err)
+		return nil, fmt.Errorf("influxdb2 output: failed to execute %s mapping template: - %w", templateKey, err)
 	}
 	return buf.Bytes(), nil
 }
@@ -166,13 +170,14 @@ func isNumber(n []byte) bool {
 	if len(n) == 0 {
 		return false
 	}
-	var point bool
+
+	var hasPoint bool
 	for _, c := range n {
-		if '0' <= c && c <= '9' {
+		if c >= '0' && c <= '9' {
 			continue
 		}
-		if c == '.' && len(n) > 1 && !point {
-			point = true
+		if c == '.' && len(n) > 1 && !hasPoint {
+			hasPoint = true
 			continue
 		}
 		return false
@@ -191,6 +196,8 @@ func asNumber(data []byte) (float64, error) {
 }
 
 func (i *influxdb) Close(_ context.Context) error {
+	writeApi := i.client.WriteAPI(i.config.OrganizationId, i.config.Bucket)
+	writeApi.Flush()
 	i.client.Close()
 	return nil
 }
