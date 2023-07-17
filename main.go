@@ -21,10 +21,11 @@ import (
 	_ "github.com/nikiforov-soft/yasp/output/transform/impl"
 )
 
+// Injected during build time
 var (
-	Version string = "dev"
-	Commit  string = "HEAD"
-	Date    string = time.Now().Format(time.RFC3339)
+	version string = "dev"
+	commit  string = "HEAD"
+	date    string = time.Now().Format(time.RFC3339)
 )
 
 var (
@@ -50,9 +51,9 @@ func main() {
 	}
 
 	logrus.
-		WithField("version", Version).
-		WithField("commit", Commit).
-		WithField("date", Date).
+		WithField("version", version).
+		WithField("commit", commit).
+		WithField("date", date).
 		Info("initializing...")
 
 	if _, err := maxprocs.Set(maxprocs.Logger(logrus.Printf)); err != nil {
