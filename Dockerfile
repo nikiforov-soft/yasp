@@ -17,6 +17,4 @@ FROM scratch
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /user/app /app
 
-EXPOSE 6060/tcp
-
 ENTRYPOINT ["/app"]
