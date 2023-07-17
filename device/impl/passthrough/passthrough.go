@@ -11,14 +11,18 @@ type passthrough struct {
 	config *config.Device
 }
 
-func (p *passthrough) Decode(_ context.Context, data []byte) (*device.Data, error) {
+func (p *passthrough) Decode(_ context.Context, data *device.Data) (*device.Data, error) {
+	properties := make(map[string]interface{}, len(data.Properties)+4)
+	for k, v := range data.Properties {
+		properties[k] = v
+	}
+	properties["deviceName"] = p.config.Name
+	properties["deviceType"] = p.config.Type
+	properties["deviceProperties"] = p.config.Properties
+	properties["value"] = string(data.Data)
 	return &device.Data{
-		Data: data,
-		Properties: map[string]interface{}{
-			"deviceName":       p.config.Name,
-			"deviceType":       p.config.Type,
-			"deviceProperties": p.config.Properties,
-		},
+		Data:       data.Data,
+		Properties: properties,
 	}, nil
 }
 

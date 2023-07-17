@@ -14,7 +14,7 @@ type sensorGroup struct {
 	config          *config.Sensor
 	input           input.Input
 	inputTransforms []inputtransform.Transform
-	outputs         []outputGroup
+	outputGroups    []outputGroup
 	devices         []device.Device
 }
 
@@ -23,7 +23,7 @@ func (sg *sensorGroup) Close() error {
 	if err := sg.input.Close(context.Background()); err != nil {
 		errs = append(errs, err)
 	}
-	for _, og := range sg.outputs {
+	for _, og := range sg.outputGroups {
 		if err := og.Output.Close(context.Background()); err != nil {
 			errs = append(errs, err)
 		}
