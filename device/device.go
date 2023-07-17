@@ -5,5 +5,5 @@ import (
 )
 
 type Device interface {
-	Decode(ctx context.Context, data []byte) (*Data, error)
+	Decode(ctx context.Context, data *Data) (*Data, error)
 }

@@ -1,6 +1,7 @@
 version: 1
 sensors:
-  - name: Xiaomi Mi Temperature and Humidity Monitor 2
+  - enabled: false
+    name: Xiaomi Mi Temperature and Humidity Monitor 2
     input:
       transforms:
         - name: ble-to-mqtt
@@ -8,7 +9,7 @@ sensors:
             serviceDataKey: "0000fe95-0000-1000-8000-00805f9b34fb"
       mqtt:
         topics:
-          - ble_events/ServiceDataAdvertisement/LYWSD03MMC
+          - ble_events/ServiceDataAdvertisement/LYWSD03MMC/#
         brokerUrls:
           - tcp://localhost:1883
         clientId: LYWSD03MMC_Subscriber
@@ -31,7 +32,7 @@ sensors:
           bucket: sensors
           measurement: "{{ index .Properties \"unit\" }}"
           useGZip: true
-          batchSize: 1
+          batchSize: 0
           tagMapping:
             name: "{{ index .Properties \"deviceName\" }}"
             type: "{{ index .Properties \"deviceType\" }}"
@@ -46,3 +47,37 @@ sensors:
         properties:
           macAddress: "A4:C1:38:AB:CD:EF"
           encryptionKey: "0abcdef0000000000000000000000000"
+  - enabled: false
+    name: P1P2 HVAC
+    input:
+      mqtt:
+        topics:
+          - "P1P2/P/<last digit of the ip>/T/8//IULiquidPipeTemperature"
+          - "P1P2/P/<last digit of the ip>/T/8//IUAirInletTemperature"
+        brokerUrls:
+          - tcp://localhost:1883
+        clientId: P1P2_Subscriber
+        keepAlive: 5
+        connectRetryDelay: 5s
+    outputs:
+      - influxdb2:
+          enabled: true
+          url: "http://localhost:8086/"
+          authToken: "your auth token"
+          organizationId: "your organization id"
+          bucket: sensors
+          measurement: "{{ index .Properties \"unit\" }}"
+          useGZip: true
+          batchSize: 0
+          tagMapping:
+            type: "{{ index .Properties \"type\" }}"
+            unit: "{{ index .Properties \"unit\" }}"
+          fieldMapping:
+            unit: "{{ index .Properties \"unit\" }}"
+            value: "{{ index .Properties \"value\" | ToNumber }}"
+    devices:
+      - name: Your Device
+        type: p1p2
+        properties:
+          allowedPrefixes: "P1P2/P/<last digit of the ip>/T/8/"
+          skipUnknown: true

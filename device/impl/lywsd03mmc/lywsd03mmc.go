@@ -26,8 +26,8 @@ type lywsd03mmc struct {
 	encryptionKey []byte
 }
 
-func (s *lywsd03mmc) Decode(_ context.Context, data []byte) (*device.Data, error) {
-	frame, err := xiaomi.ParseBLEFrame(data, func(mac string) ([]byte, error) {
+func (s *lywsd03mmc) Decode(_ context.Context, data *device.Data) (*device.Data, error) {
+	frame, err := xiaomi.ParseBLEFrame(data.Data, func(mac string) ([]byte, error) {
 		if !strings.EqualFold(s.macAddress, mac) {
 			return nil, nil
 		}
@@ -61,15 +61,19 @@ func (s *lywsd03mmc) Decode(_ context.Context, data []byte) (*device.Data, error
 		return nil, fmt.Errorf("LYWSD03MMC: unhandled sensor data: device name: %s, macAddress: %s, event: %T", s.name, frame.MacAddress, event)
 	}
 
+	properties := make(map[string]interface{}, len(data.Properties)+5)
+	for k, v := range data.Properties {
+		properties[k] = v
+	}
+	properties["deviceName"] = s.name
+	properties["deviceType"] = deviceType
+	properties["deviceMacAddress"] = s.macAddress
+	properties["unit"] = unit
+	properties["value"] = value
+
 	return &device.Data{
-		Data: []byte(value),
-		Properties: map[string]interface{}{
-			"deviceName":       s.name,
-			"deviceType":       deviceType,
-			"deviceMacAddress": s.macAddress,
-			"unit":             unit,
-			"value":            value,
-		},
+		Data:       []byte(value),
+		Properties: properties,
 	}, nil
 }
 

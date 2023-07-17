@@ -120,11 +120,11 @@ func (mi *mqttInput) messageHandler(publish *paho.Publish) {
 		channel <- &input.Data{
 			Data: publish.Payload,
 			Properties: map[string]interface{}{
-				"id":         publish.PacketID,
-				"qos":        publish.QoS,
-				"retain":     publish.Retain,
-				"topic":      publish.Topic,
-				"properties": publish.Properties,
+				"inputId":         publish.PacketID,
+				"inputQos":        publish.QoS,
+				"inputRetain":     publish.Retain,
+				"inputTopic":      publish.Topic,
+				"inputProperties": publish.Properties,
 			},
 		}
 	}

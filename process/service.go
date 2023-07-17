@@ -105,7 +105,7 @@ func (s *service) init(ctx context.Context, sensorsConfig []*config.Sensor) erro
 			config:          sensorConfig,
 			input:           inputImpl,
 			inputTransforms: inputTransforms,
-			outputs:         outputs,
+			outputGroups:    outputs,
 			devices:         devices,
 		}
 
@@ -140,41 +140,76 @@ func (s *service) handleSensor(ctx context.Context, sg *sensorGroup) {
 				break
 			}
 
+			var doNotProcess bool
 			for _, transform := range sg.inputTransforms {
-				data, err := transform.Transform(ctx, inputData.Data)
+				transformData, err := transform.Transform(ctx, inputData)
 				if err != nil {
 					logrus.WithError(err).Error("process: failed to transform input data")
 					continue
 				}
-				inputData.Data = data
+				if transformData == nil {
+					doNotProcess = true
+					break
+				}
+
+				inputData.Data = transformData.Data
+				for k, v := range transformData.Properties {
+					inputData.Properties[k] = v
+				}
+			}
+			if doNotProcess {
+				continue
 			}
 
 			for _, deviceImpl := range sg.devices {
-				decodedData, err := deviceImpl.Decode(ctx, inputData.Data)
+				deviceData := &device.Data{
+					Data:       inputData.Data,
+					Properties: make(map[string]interface{}),
+				}
+				for k, v := range inputData.Properties {
+					deviceData.Properties[k] = v
+				}
+
+				decodedDeviceData, err := deviceImpl.Decode(ctx, deviceData)
 				if err != nil {
 					logrus.WithError(err).Error("process: failed to decode device data")
 					continue
 				}
-				if decodedData == nil {
+				if decodedDeviceData == nil {
 					continue
 				}
 
-				for _, og := range sg.outputs {
-					outputData := decodedData.Data
-					for _, transform := range og.OutputTransforms {
-						data, err := transform.Transform(ctx, outputData)
-						if err != nil {
-							logrus.WithError(err).Error("process: failed to transform input data")
-							continue
-						}
-						outputData = data
+				for _, og := range sg.outputGroups {
+					outputData := &output.Data{
+						Data:       decodedDeviceData.Data,
+						Properties: make(map[string]interface{}),
+					}
+					for k, v := range decodedDeviceData.Properties {
+						outputData.Properties[k] = v
 					}
 
-					err = og.Output.Publish(ctx, &output.Data{
-						Data:       outputData,
-						Properties: decodedData.Properties,
-					})
-					if err != nil {
+					var doNotProcess bool
+					for _, transform := range og.OutputTransforms {
+						transformData, err := transform.Transform(ctx, outputData)
+						if err != nil {
+							logrus.WithError(err).Error("process: failed to transform output data")
+							continue
+						}
+						if transformData == nil {
+							doNotProcess = true
+							break
+						}
+
+						outputData.Data = transformData.Data
+						for k, v := range transformData.Properties {
+							outputData.Properties[k] = v
+						}
+					}
+					if doNotProcess {
+						continue
+					}
+
+					if err = og.Output.Publish(ctx, outputData); err != nil {
 						logrus.WithError(err).Error("process: failed to publish output data")
 						continue
 					}
@@ -194,6 +229,5 @@ func (s *service) Close() error {
 			errs = append(errs, err)
 		}
 	}
-
 	return errors.Join(errs...)
 }
