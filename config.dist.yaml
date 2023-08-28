@@ -8,6 +8,7 @@ sensors:
           properties:
             serviceDataKey: "0000fe95-0000-1000-8000-00805f9b34fb"
       mqtt:
+        enabled: true
         topics:
           - ble_events/ServiceDataAdvertisement/LYWSD03MMC/#
         brokerUrls:
@@ -15,6 +16,15 @@ sensors:
         clientId: LYWSD03MMC_Subscriber
         keepAlive: 5
         connectRetryDelay: 5s
+      memphis:
+        enabled: false
+        hostname: 127.0.0.1:6666
+        username: bletomemphisconsumer
+        password: yourpassword
+        station: bletomemphis
+        consumerName: bletomemphisconsumer
+        pollInterval: 1s
+        batchSize: 100
     outputs:
       - mqtt:
           enabled: true

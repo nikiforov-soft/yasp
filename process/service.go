@@ -47,8 +47,13 @@ func (s *service) init(ctx context.Context, sensorsConfig []*config.Sensor) erro
 		var outputs []outputGroup
 		var devices []device.Device
 		var err error
-		if mqtt := sensorConfig.Input.Mqtt; mqtt != nil {
+		if mqtt := sensorConfig.Input.Mqtt; mqtt != nil && mqtt.Enabled {
 			inputImpl, err = input.NewInput(ctx, "mqtt", sensorConfig.Input)
+			if err != nil {
+				return fmt.Errorf("process: failed to initialize input: %w", err)
+			}
+		} else if memphis := sensorConfig.Input.Memphis; memphis != nil && memphis.Enabled {
+			inputImpl, err = input.NewInput(ctx, "memphis", sensorConfig.Input)
 			if err != nil {
 				return fmt.Errorf("process: failed to initialize input: %w", err)
 			}
@@ -79,7 +84,7 @@ func (s *service) init(ctx context.Context, sensorsConfig []*config.Sensor) erro
 			}
 
 			if outputContainer.Output == nil {
-				return errors.New("process: failed to initialize output, none provided")
+				continue
 			}
 
 			for _, transform := range o.Transforms {
@@ -91,6 +96,10 @@ func (s *service) init(ctx context.Context, sensorsConfig []*config.Sensor) erro
 			}
 
 			outputs = append(outputs, outputContainer)
+		}
+
+		if len(outputs) == 0 {
+			return errors.New("process: failed to initialize output, none provided")
 		}
 
 		for _, dev := range sensorConfig.Devices {

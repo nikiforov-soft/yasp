@@ -22,7 +22,7 @@ type mqttInput struct {
 	activeChannelsLock     sync.Mutex
 }
 
-func NewMqttInput(_ context.Context, config *config.MqttInput) (input.Input, error) {
+func newMqttInput(_ context.Context, config *config.MqttInput) (input.Input, error) {
 	return &mqttInput{
 		config: config,
 	}, nil
@@ -132,7 +132,7 @@ func (mi *mqttInput) messageHandler(publish *paho.Publish) {
 
 func init() {
 	err := input.RegisterInput("mqtt", func(ctx context.Context, config *config.Input) (input.Input, error) {
-		return NewMqttInput(ctx, config.Mqtt)
+		return newMqttInput(ctx, config.Mqtt)
 	})
 	if err != nil {
 		panic(err)
