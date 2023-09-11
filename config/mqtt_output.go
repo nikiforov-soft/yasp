@@ -9,6 +9,8 @@ type MqttOutput struct {
 	Enabled           bool          `yaml:"enabled"`
 	Topic             string        `yaml:"topic"`
 	BrokerUrls        []*Url        `yaml:"brokerUrls"`
+	Username          string        `yaml:"username"`
+	Password          string        `yaml:"password"`
 	ClientId          string        `yaml:"clientId"`
 	KeepAlive         uint16        `yaml:"keepAlive"`
 	ConnectRetryDelay time.Duration `yaml:"connectRetryDelay"`

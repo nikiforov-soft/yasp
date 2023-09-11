@@ -59,6 +59,11 @@ func NewMqttOutput(ctx context.Context, config *config.MqttOutput) (output.Outpu
 			},
 		},
 	}
+
+	if len(config.Username) != 0 && len(config.Password) != 0 {
+		clientConfig.SetUsernamePassword(config.Username, []byte(config.Password))
+	}
+
 	connectionManager, err := autopaho.NewConnection(ctx, clientConfig)
 	if err != nil {
 		return nil, fmt.Errorf("mqtt output: failed to initialize connection manager: %w", err)
