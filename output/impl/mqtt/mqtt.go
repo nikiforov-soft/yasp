@@ -93,7 +93,8 @@ func (mo *mqttOutput) Publish(ctx context.Context, data *output.Data) error {
 	topic := buf.String()
 	logrus.WithField("topic", topic).WithField("payload", string(data.Data)).Debug("output published")
 	_, err = mo.connectionManager.Publish(ctx, &paho.Publish{
-		QoS:     0,
+		QoS:     mo.config.QoS,
+		Retain:  mo.config.Retain,
 		Topic:   topic,
 		Payload: data.Data,
 	})
