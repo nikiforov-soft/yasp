@@ -78,6 +78,10 @@ func (mi *mqttInput) Subscribe(ctx context.Context) (<-chan *input.Data, error) 
 		},
 	}
 
+	if len(mi.config.Username) != 0 && len(mi.config.Password) != 0 {
+		clientConfig.SetUsernamePassword(mi.config.Username, []byte(mi.config.Password))
+	}
+
 	mi.activeChannelsLock.Lock()
 	defer mi.activeChannelsLock.Unlock()
 

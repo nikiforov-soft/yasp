@@ -13,6 +13,8 @@ sensors:
           - ble_events/ServiceDataAdvertisement/LYWSD03MMC/#
         brokerUrls:
           - tcp://localhost:1883
+        username: ""
+        password: ""
         clientId: LYWSD03MMC_Subscriber
         keepAlive: 5
         connectRetryDelay: 5s
@@ -31,6 +33,8 @@ sensors:
           topic: sensors/LYWSD03MMC/{{index .Properties "deviceName" }}/{{index .Properties "unit" | ToLower }}
           brokerUrls:
            - tcp://localhost:1883
+          username: ""
+          password: ""
           clientId: LYWSD03MMC_Publisher
           keepAlive: 5
           connectRetryDelay: 5s
