@@ -14,6 +14,8 @@ type MqttOutput struct {
 	ClientId          string        `yaml:"clientId"`
 	KeepAlive         uint16        `yaml:"keepAlive"`
 	ConnectRetryDelay time.Duration `yaml:"connectRetryDelay"`
+	QoS               byte          `yaml:"qos"`
+	Retain            bool          `yaml:"bool"`
 }
 
 func (m *MqttOutput) GetBrokerUrls() []*url.URL {

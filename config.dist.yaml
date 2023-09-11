@@ -38,6 +38,8 @@ sensors:
           clientId: LYWSD03MMC_Publisher
           keepAlive: 5
           connectRetryDelay: 5s
+          qos: 0
+          retain: false
       - influxdb2:
           enabled: false
           url: "http://localhost:8086/"
