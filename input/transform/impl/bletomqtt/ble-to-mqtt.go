@@ -6,10 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/nikiforov-soft/yasp/config"
 	"github.com/nikiforov-soft/yasp/input"
 	"github.com/nikiforov-soft/yasp/input/transform"
-	"github.com/sirupsen/logrus"
 )
 
 const (

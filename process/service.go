@@ -7,13 +7,14 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/nikiforov-soft/yasp/config"
 	"github.com/nikiforov-soft/yasp/device"
 	"github.com/nikiforov-soft/yasp/input"
 	inputtransform "github.com/nikiforov-soft/yasp/input/transform"
 	"github.com/nikiforov-soft/yasp/output"
 	outputtransform "github.com/nikiforov-soft/yasp/output/transform"
-	"github.com/sirupsen/logrus"
 )
 
 type Service interface {

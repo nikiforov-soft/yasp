@@ -135,6 +135,8 @@ github.com/pschlump/godebug v1.0.4 h1:X37zf4qXgsQhT4mceDet768mAimjxFDpsis7zEl8A8
 github.com/pschlump/godebug v1.0.4/go.mod h1:0g877qgD7yUdH5NUqp6hg/QTvR0LLIBGpuk7FeUlmWE=
 github.com/pschlump/json v0.0.0-20180316172947-0d2e6a308e08 h1:vlHZH1VS4Wt4C8Jk1y8C6UqnpT54RuKWkV8iRc9Bwp4=
 github.com/pschlump/json v0.0.0-20180316172947-0d2e6a308e08/go.mod h1:MyeKNxcsYS/AaCqIp6DgPdaE/4NVH49OJVCnQsRoevI=
+github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d h1:hrujxIzL1woJ7AwssoOcM/tq5JjjG2yYOc8odClEiXA=
+github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d/go.mod h1:uugorj2VCxiV1x+LzaIdVa9b4S4qGAcH6cbhh4qVxOU=
 github.com/santhosh-tekuri/jsonschema/v5 v5.3.1 h1:lZUw3E0/J3roVtGQ+SCrUrg3ON6NgVqpn3+iol9aGu4=
 github.com/santhosh-tekuri/jsonschema/v5 v5.3.1/go.mod h1:uToXkOrWAZ6/Oc07xWQrPOhJotwFIyu2bBVN41fcDUY=
 github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ=

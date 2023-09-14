@@ -8,10 +8,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nikiforov-soft/yasp/config"
-	"github.com/nikiforov-soft/yasp/process"
 	"github.com/sirupsen/logrus"
 	"go.uber.org/automaxprocs/maxprocs"
+
+	"github.com/nikiforov-soft/yasp/config"
+	"github.com/nikiforov-soft/yasp/process"
 
 	// Side effect imports
 	_ "github.com/nikiforov-soft/yasp/device/impl"
