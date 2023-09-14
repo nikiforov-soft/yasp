@@ -10,9 +10,10 @@ import (
 
 	"github.com/eclipse/paho.golang/autopaho"
 	"github.com/eclipse/paho.golang/paho"
+	"github.com/sirupsen/logrus"
+
 	"github.com/nikiforov-soft/yasp/config"
 	"github.com/nikiforov-soft/yasp/output"
-	"github.com/sirupsen/logrus"
 )
 
 var (

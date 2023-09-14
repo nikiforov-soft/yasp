@@ -7,9 +7,10 @@ import (
 	"sync"
 
 	"github.com/memphisdev/memphis.go"
+	"github.com/sirupsen/logrus"
+
 	"github.com/nikiforov-soft/yasp/config"
 	"github.com/nikiforov-soft/yasp/input"
-	"github.com/sirupsen/logrus"
 )
 
 type memphisInput struct {

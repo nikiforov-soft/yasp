@@ -9,9 +9,10 @@ import (
 
 	"github.com/eclipse/paho.golang/autopaho"
 	"github.com/eclipse/paho.golang/paho"
+	"github.com/sirupsen/logrus"
+
 	"github.com/nikiforov-soft/yasp/config"
 	"github.com/nikiforov-soft/yasp/input"
-	"github.com/sirupsen/logrus"
 )
 
 type mqttInput struct {

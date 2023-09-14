@@ -6,9 +6,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/nikiforov-soft/yasp/config"
 	"github.com/nikiforov-soft/yasp/device"
-	"github.com/sirupsen/logrus"
 )
 
 const (

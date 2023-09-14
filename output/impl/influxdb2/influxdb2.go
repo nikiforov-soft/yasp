@@ -12,9 +12,10 @@ import (
 
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	"github.com/influxdata/influxdb-client-go/v2/domain"
+	"github.com/sirupsen/logrus"
+
 	"github.com/nikiforov-soft/yasp/config"
 	"github.com/nikiforov-soft/yasp/output"
-	"github.com/sirupsen/logrus"
 )
 
 var (
