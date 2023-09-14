@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sync"
 
 	"github.com/memphisdev/memphis.go"
@@ -99,6 +100,25 @@ func (mi *memphisInput) messageHandler(messages []*memphis.Msg, err error, ctx c
 		if err := message.Ack(); err != nil {
 			logrus.WithError(err).Error("failed to ack msg")
 			continue
+		}
+
+		if mi.config.HeaderPrefixes != nil {
+			var exists bool
+			for k, v := range message.GetHeaders() {
+				if requiredPrefix, exists := mi.config.HeaderPrefixes[k]; exists {
+					matches, err := filepath.Match(requiredPrefix, v)
+					if err != nil {
+						return
+					}
+					if matches {
+						exists = true
+						break
+					}
+				}
+			}
+			if !exists {
+				continue
+			}
 		}
 
 		for _, channel := range mi.activeChannels {

@@ -27,6 +27,8 @@ sensors:
         consumerName: bletomemphisconsumer
         pollInterval: 1s
         batchSize: 100
+        headerPrefixes:
+          path: ble-to-memphis/ServiceDataAdvertisement/*/LYWSD03MMC
     outputs:
       - mqtt:
           enabled: true
