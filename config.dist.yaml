@@ -69,9 +69,11 @@ sensors:
     name: P1P2 HVAC
     input:
       mqtt:
+        enabled: true
         topics:
-          - "P1P2/P/<last digit of the ip>/T/8//IULiquidPipeTemperature"
-          - "P1P2/P/<last digit of the ip>/T/8//IUAirInletTemperature"
+          - "P1P2/P/<last digit of the ip>/T/8/IULiquidPipeTemperature"
+          - "P1P2/P/<last digit of the ip>/T/8/IUAirInletTemperature"
+          - "P1P2/P/<last digit of the ip>/T/8/IUAirOutletTemperature"
         brokerUrls:
           - tcp://localhost:1883
         clientId: P1P2_Subscriber
@@ -90,6 +92,7 @@ sensors:
           tagMapping:
             type: "{{ index .Properties \"type\" }}"
             unit: "{{ index .Properties \"unit\" }}"
+            description: "{{ index .Properties \"description\" }}"
           fieldMapping:
             unit: "{{ index .Properties \"unit\" }}"
             value: "{{ index .Properties \"value\" | ToNumber }}"
