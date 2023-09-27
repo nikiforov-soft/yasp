@@ -15,8 +15,13 @@ import (
 const (
 	temperatureKey     = "IULiquidPipeTemperature"
 	statusKey          = "IUAirInletTemperature"
+	fanSpeedKey        = "IUAirOutletTemperature"
 	allowedPrefixesKey = "allowedPrefixes"
 	skipUnknownKey     = "skipUnknown"
+
+	fanSpeedHighBit   = 1 << 1
+	fanSpeedMediumBit = 1 << 2
+	fanSpeedLowBit    = 1 << 3
 )
 
 type p1p2 struct {
@@ -43,7 +48,9 @@ func (p *p1p2) Decode(_ context.Context, data *device.Data) (*device.Data, error
 		}
 	}
 
-	if !strings.HasSuffix(inputTopic, temperatureKey) && !strings.HasSuffix(inputTopic, statusKey) {
+	if !strings.HasSuffix(inputTopic, temperatureKey) &&
+		!strings.HasSuffix(inputTopic, statusKey) &&
+		!strings.HasSuffix(inputTopic, fanSpeedKey) {
 		if skipUnknown, exists := p.config.Properties[skipUnknownKey]; exists && strings.ToLower(skipUnknown) == "true" {
 			return nil, nil
 		}
@@ -66,7 +73,7 @@ func (p *p1p2) Decode(_ context.Context, data *device.Data) (*device.Data, error
 	properties["type"] = "p1p2"
 
 	unit := inputTopic[(lastSlashIndex + 1):]
-	var value []byte
+	value := data.Data
 
 	switch unit {
 	case statusKey:
@@ -75,25 +82,53 @@ func (p *p1p2) Decode(_ context.Context, data *device.Data) (*device.Data, error
 		case "8":
 			value = []byte("0")
 			properties["value"] = float64(0)
+			properties["description"] = "Off"
 		case "9":
 			value = []byte("1")
 			properties["value"] = float64(1)
+			properties["description"] = "On"
 		default:
 			logrus.
-				WithField("unit", "IUAirInletTemperature").
+				WithField("unit", unit).
 				WithField("value", string(value)).
 				Warn("unsupported value")
 			return nil, nil
 		}
 	case temperatureKey:
-		unit = "Temperature"
 		float64Value, err := strconv.ParseFloat(string(data.Data), 64)
 		if err != nil {
 			return nil, fmt.Errorf("p1p2: failed to parse data: %s as float64: %w", string(data.Data), err)
 		}
 		properties["unit"] = "Temperature"
 		properties["value"] = float64Value
-		value = data.Data
+		properties["description"] = "Celsius"
+	case fanSpeedKey:
+		fanSpeedMask, err := strconv.ParseInt(string(data.Data), 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("p1p2: failed to parse data: %s as int: %w", string(data.Data), err)
+		}
+
+		var fanSpeed string
+		var fanSpeedValue int
+		if (fanSpeedMask & fanSpeedMediumBit) == fanSpeedMediumBit {
+			fanSpeed = "Medium"
+			fanSpeedValue = 2
+		} else if (fanSpeedMask & fanSpeedHighBit) == fanSpeedHighBit {
+			fanSpeed = "High"
+			fanSpeedValue = 3
+		} else if (fanSpeedMask & fanSpeedLowBit) == fanSpeedLowBit {
+			fanSpeed = "Low"
+			fanSpeedValue = 1
+		} else {
+			logrus.
+				WithField("unit", unit).
+				WithField("value", fanSpeedMask).
+				Warn("unsupported value")
+			return nil, nil
+		}
+		properties["unit"] = "Fan Speed"
+		properties["value"] = fanSpeedValue
+		properties["description"] = fanSpeed
 	default:
 		properties["unit"] = unit
 		properties["value"] = string(data.Data)
