@@ -46,11 +46,12 @@ func (mi *mqttInput) Subscribe(ctx context.Context) (<-chan *input.Data, error) 
 		OnConnectionUp: func(cm *autopaho.ConnectionManager, connAck *paho.Connack) {
 			logrus.Info("mqtt input: connected to mqtt server")
 
-			subscriptions := make(map[string]paho.SubscribeOptions, len(mi.config.Topics))
+			subscriptions := make([]paho.SubscribeOptions, len(mi.config.Topics))
 			for _, topic := range mi.config.Topics {
-				subscriptions[topic] = paho.SubscribeOptions{
-					QoS: 0,
-				}
+				subscriptions = append(subscriptions, paho.SubscribeOptions{
+					Topic: topic,
+					QoS:   0,
+				})
 			}
 
 			if _, err := cm.Subscribe(ctx, &paho.Subscribe{
