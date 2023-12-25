@@ -56,7 +56,7 @@ func (btm *bleToMqtt) Transform(_ context.Context, data *input.Data) (*input.Dat
 			Properties: properties,
 		}, err
 	}
-	return nil, fmt.Errorf("ble-to-mqtt transform: unable to find %s in service data", btm.sdk)
+	return nil, nil
 }
 
 func init() {
