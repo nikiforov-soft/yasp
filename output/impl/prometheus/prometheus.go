@@ -118,15 +118,16 @@ func (p *promeheus) Publish(_ context.Context, data *output.Data) error {
 		WithField("data", string(data.Data)).
 		WithField("properties", data.Properties).
 		Info("prometheus data")
+
 	for _, mapping := range p.config.MetricsMapping {
 		conditionBytes, err := templateProcess(mapping.Name, mapping.Condition, data)
 		if err != nil {
-			return err
+			return fmt.Errorf("prometheus: failed to process condition template: %w", err)
 		}
 
 		conditionValue, err := strconv.ParseBool(string(conditionBytes))
 		if err != nil {
-			return err
+			return fmt.Errorf("prometheus: failed to parse condition as boolean: %w", err)
 		}
 
 		if !conditionValue {
@@ -135,7 +136,7 @@ func (p *promeheus) Publish(_ context.Context, data *output.Data) error {
 
 		value, err := templateProcess(mapping.Name, mapping.Value, data)
 		if err != nil {
-			return err
+			return fmt.Errorf("prometheus: failed to process value template: %w", err)
 		}
 
 		metric, exists := p.metricByName[mapping.Name]
@@ -183,25 +184,25 @@ func (p *promeheus) Publish(_ context.Context, data *output.Data) error {
 		case prometheus.Gauge:
 			v, err := asNumber(value)
 			if err != nil {
-				return fmt.Errorf("prometheus: failed to parse float64: %s - %w", string(value), err)
+				return fmt.Errorf("prometheus: failed to parse gauge value as float64: %s - %w", string(value), err)
 			}
 			m.Set(v)
 		case prometheus.Summary:
 			v, err := asNumber(value)
 			if err != nil {
-				return fmt.Errorf("prometheus: failed to parse float64: %s - %w", string(value), err)
+				return fmt.Errorf("prometheus: failed to parse summary value as float64: %s - %w", string(value), err)
 			}
 			m.Observe(v)
 		case prometheus.Histogram:
 			v, err := asNumber(value)
 			if err != nil {
-				return fmt.Errorf("prometheus: failed to parse float64: %s - %w", string(value), err)
+				return fmt.Errorf("prometheus: failed to parse histogram value as float64: %s - %w", string(value), err)
 			}
 			m.Observe(v)
 		case prometheus.Counter:
 			v, err := asNumber(value)
 			if err != nil {
-				return fmt.Errorf("prometheus: failed to parse float64: %s - %w", string(value), err)
+				return fmt.Errorf("prometheus: failed to parse counter value as float64: %s - %w", string(value), err)
 			}
 			m.Add(v)
 		default:
@@ -218,12 +219,12 @@ func (p *promeheus) Close(ctx context.Context) error {
 func templateProcess(templateKey, templateValue string, data any) ([]byte, error) {
 	tmpl, err := template.New(templateKey).Funcs(funcsMap).Parse(templateValue)
 	if err != nil {
-		return nil, fmt.Errorf("prometheus output: failed to parse: %w", err)
+		return nil, fmt.Errorf("failed to parse template: %w", err)
 	}
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
-		return nil, fmt.Errorf("prometheus output: failed to execute %s mapping template: - %w", templateKey, err)
+		return nil, fmt.Errorf("failed to execute %s template: - %w", templateKey, err)
 	}
 	return buf.Bytes(), nil
 }
