@@ -59,6 +59,39 @@ sensors:
           fieldMapping:
             unit: "{{ index .Properties \"unit\" }}"
             value: "{{ index .Properties \"value\" | ToNumber }}"
+      - prometheus:
+          enabled: false
+          listenAddr: ":6123"
+          endpoint: "/metrics"
+          tls:
+            certificateFile: ""
+            privateKeyFile: ""
+          # Go template live previewer https://gotemplate.io/
+          metricsMapping:
+            - name: Temperature
+              description: Temperature sensor value
+              namespace: ""
+              subsystem: ""
+              labels: {}
+              type: Gauge
+              value: "{{ index .Properties \"value\" | ToNumber }}"
+              condition: "{{ if eq (index .Properties \"unit\") \"Temperature\" }}true{{else}}false{{end}}"
+            - name: Humidity
+              description: Humidity sensor value
+              namespace: ""
+              subsystem: ""
+              labels: { }
+              type: Gauge
+              value: "{{ index .Properties \"value\" | ToNumber }}"
+              condition: "{{ if eq (index .Properties \"unit\") \"Humidity\" }}true{{else}}false{{end}}"
+            - name: Battery
+              description: Battery sensor value
+              namespace: ""
+              subsystem: ""
+              labels: { }
+              type: Gauge
+              value: "{{ index .Properties \"value\" | ToNumber }}"
+              condition: "{{ if eq (index .Properties \"unit\") \"Battery\" }}true{{else}}false{{end}}"
     devices:
       - name: Your Sensor
         type: LYWSD03MMC
