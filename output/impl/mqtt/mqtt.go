@@ -1,11 +1,8 @@
 package mqtt
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"strings"
-	"text/template"
 	"time"
 
 	"github.com/eclipse/paho.golang/autopaho"
@@ -14,16 +11,7 @@ import (
 
 	"github.com/nikiforov-soft/yasp/config"
 	"github.com/nikiforov-soft/yasp/output"
-)
-
-var (
-	funcsMap = map[string]any{
-		"ToLower":    strings.ToLower,
-		"ToUpper":    strings.ToUpper,
-		"TrimSpaces": strings.TrimSpace,
-		"TrimPrefix": strings.TrimPrefix,
-		"TrimSuffix": strings.TrimSuffix,
-	}
+	"github.com/nikiforov-soft/yasp/template"
 )
 
 type mqttOutput struct {
@@ -81,17 +69,12 @@ func (mo *mqttOutput) Publish(ctx context.Context, data *output.Data) error {
 		return fmt.Errorf("mqtt output: failed to await connection: %w", err)
 	}
 
-	tmpl, err := template.New("mqtt-output").Funcs(funcsMap).Parse(mo.config.Topic)
+	topicData, err := template.Execute("mqtt output", mo.config.Topic, data)
 	if err != nil {
 		return fmt.Errorf("mqtt output: failed to parse glob: %w", err)
 	}
 
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		return fmt.Errorf("mqtt output: failed to execute output topic template: %w", err)
-	}
-
-	topic := buf.String()
+	topic := string(topicData)
 	logrus.WithField("topic", topic).WithField("payload", string(data.Data)).Debug("output published")
 	_, err = mo.connectionManager.Publish(ctx, &paho.Publish{
 		QoS:     mo.config.QoS,

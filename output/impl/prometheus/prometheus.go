@@ -1,14 +1,12 @@
 package prometheus
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
-	"text/template"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -17,65 +15,7 @@ import (
 
 	"github.com/nikiforov-soft/yasp/config"
 	"github.com/nikiforov-soft/yasp/output"
-)
-
-var (
-	funcsMap = map[string]any{
-		"ToLower":    strings.ToLower,
-		"ToUpper":    strings.ToUpper,
-		"TrimSpaces": strings.TrimSpace,
-		"TrimPrefix": strings.TrimPrefix,
-		"TrimSuffix": strings.TrimSuffix,
-		"ToNumber": func(value any) any {
-			var stringValue string
-			switch value := value.(type) {
-			case uint8:
-				return value
-			case uint16:
-				return value
-			case uint32:
-				return value
-			case uint64:
-				return value
-			case int8:
-				return value
-			case int16:
-				return value
-			case int32:
-				return value
-			case int64:
-				return value
-			case float64:
-				return value
-			case float32:
-				return value
-			case []byte:
-				stringValue = string(value)
-			case string:
-				stringValue = value
-			default:
-				return fmt.Sprintf("%v", value)
-			}
-
-			if float64Value, err := strconv.ParseFloat(stringValue, 64); err == nil {
-				return float64Value
-			}
-
-			if int64Value, err := strconv.ParseInt(stringValue, 10, 64); err == nil {
-				return int64Value
-			}
-
-			return stringValue
-		},
-		"Split": strings.Split,
-		"Last": func(values []string) string {
-			if len(values) == 0 {
-				return ""
-			}
-			return values[len(values)-1]
-		},
-		"Quote": strconv.Quote,
-	}
+	"github.com/nikiforov-soft/yasp/template"
 )
 
 type promeheus struct {
@@ -120,7 +60,7 @@ func (p *promeheus) Publish(_ context.Context, data *output.Data) error {
 		Debug("prometheus data")
 
 	for _, mapping := range p.config.MetricsMapping {
-		conditionBytes, err := templateProcess(mapping.Name, mapping.Condition, data)
+		conditionBytes, err := template.Execute(mapping.Name, mapping.Condition, data)
 		if err != nil {
 			return fmt.Errorf("prometheus: failed to process condition template: %w", err)
 		}
@@ -134,7 +74,7 @@ func (p *promeheus) Publish(_ context.Context, data *output.Data) error {
 			continue
 		}
 
-		value, err := templateProcess(mapping.Name, mapping.Value, data)
+		value, err := template.Execute(mapping.Name, mapping.Value, data)
 		if err != nil {
 			return fmt.Errorf("prometheus: failed to process value template: %w", err)
 		}
@@ -182,25 +122,25 @@ func (p *promeheus) Publish(_ context.Context, data *output.Data) error {
 
 		switch m := metric.(type) {
 		case prometheus.Gauge:
-			v, err := asNumber(value)
+			v, err := template.AsNumber(value)
 			if err != nil {
 				return fmt.Errorf("prometheus: failed to parse gauge value as float64: %s - %w", string(value), err)
 			}
 			m.Set(v)
 		case prometheus.Summary:
-			v, err := asNumber(value)
+			v, err := template.AsNumber(value)
 			if err != nil {
 				return fmt.Errorf("prometheus: failed to parse summary value as float64: %s - %w", string(value), err)
 			}
 			m.Observe(v)
 		case prometheus.Histogram:
-			v, err := asNumber(value)
+			v, err := template.AsNumber(value)
 			if err != nil {
 				return fmt.Errorf("prometheus: failed to parse histogram value as float64: %s - %w", string(value), err)
 			}
 			m.Observe(v)
 		case prometheus.Counter:
-			v, err := asNumber(value)
+			v, err := template.AsNumber(value)
 			if err != nil {
 				return fmt.Errorf("prometheus: failed to parse counter value as float64: %s - %w", string(value), err)
 			}
@@ -214,29 +154,6 @@ func (p *promeheus) Publish(_ context.Context, data *output.Data) error {
 
 func (p *promeheus) Close(ctx context.Context) error {
 	return p.server.Shutdown(ctx)
-}
-
-func templateProcess(templateKey, templateValue string, data any) ([]byte, error) {
-	tmpl, err := template.New(templateKey).Funcs(funcsMap).Parse(templateValue)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse template: %w", err)
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		return nil, fmt.Errorf("failed to execute %s template: - %w", templateKey, err)
-	}
-	return buf.Bytes(), nil
-}
-
-func asNumber(data []byte) (float64, error) {
-	if float64Value, err := strconv.ParseFloat(string(data), 64); err == nil {
-		return float64Value, nil
-	}
-	if int64Value, err := strconv.ParseInt(string(data), 10, 64); err == nil {
-		return float64(int64Value), nil
-	}
-	return 0, fmt.Errorf("failed to parse %s as number", string(data))
 }
 
 func init() {
