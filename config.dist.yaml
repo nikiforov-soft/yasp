@@ -1,6 +1,13 @@
 # This configuration uses go templates
 # You can use https://gotemplate.io/ to test your template configuration
 version: 1
+metrics:
+  enabled: false
+  listenAddr: ":6123"
+  endpoint: "/metrics"
+  tls:
+    certificateFile: ""
+    privateKeyFile: ""
 sensors:
   - enabled: false
     name: Xiaomi Mi Temperature and Humidity Monitor 2
@@ -63,11 +70,6 @@ sensors:
             value: "{{ index .Properties \"value\" | ToNumber }}"
       - prometheus:
           enabled: false
-          listenAddr: ":6123"
-          endpoint: "/metrics"
-          tls:
-            certificateFile: ""
-            privateKeyFile: ""
           metricsMapping:
             - name: "{{- index .Properties \"unit\" | ToLower -}}" # Templating supported
               description: "sensor value." # Templating supported

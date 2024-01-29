@@ -6,15 +6,7 @@ import (
 
 type Prometheus struct {
 	Enabled        bool                       `yaml:"enabled"`
-	ListenAddr     string                     `yaml:"listenAddr"`
-	Endpoint       string                     `yaml:"endpoint"`
-	TLS            PrometheusTlsConfig        `yaml:"tls"`
 	MetricsMapping []PrometheusMetricsMapping `yaml:"metricsMapping"`
-}
-
-type PrometheusTlsConfig struct {
-	CertificateFile string `yaml:"certificateFile"`
-	PrivateKeyFile  string `yaml:"privateKeyFile"`
 }
 
 type PrometheusMetricsMapping struct {
