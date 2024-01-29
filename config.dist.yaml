@@ -34,7 +34,7 @@ sensors:
           enabled: true
           topic: sensors/LYWSD03MMC/{{index .Properties "deviceName" }}/{{index .Properties "unit" | ToLower }}
           brokerUrls:
-           - tcp://localhost:1883
+            - tcp://localhost:1883
           username: ""
           password: ""
           clientId: LYWSD03MMC_Publisher
@@ -68,30 +68,46 @@ sensors:
             privateKeyFile: ""
           # Go template live previewer https://gotemplate.io/
           metricsMapping:
-            - name: Temperature
-              description: Temperature sensor value
-              namespace: ""
-              subsystem: ""
-              labels: {}
-              type: Gauge
-              value: "{{ index .Properties \"value\" | ToNumber }}"
-              condition: "{{ if eq (index .Properties \"unit\") \"Temperature\" }}true{{else}}false{{end}}"
-            - name: Humidity
-              description: Humidity sensor value
-              namespace: ""
-              subsystem: ""
-              labels: { }
-              type: Gauge
-              value: "{{ index .Properties \"value\" | ToNumber }}"
-              condition: "{{ if eq (index .Properties \"unit\") \"Humidity\" }}true{{else}}false{{end}}"
-            - name: Battery
-              description: Battery sensor value
-              namespace: ""
-              subsystem: ""
-              labels: { }
-              type: Gauge
-              value: "{{ index .Properties \"value\" | ToNumber }}"
-              condition: "{{ if eq (index .Properties \"unit\") \"Battery\" }}true{{else}}false{{end}}"
+            - name: "{{ index .Properties \"unit\" }}" # Templating supported
+              description: "sensor value." # Templating supported
+              namespace: "{{ index .Properties \"deviceType\" }}" # Templating supported
+              subsystem: "" # Templating supported
+              labels:
+                device: "{{ index .Properties \"deviceName\" }}" # Templating supported on both keys and values
+              type: Gauge # Templating supported
+              value: "{{ index .Properties \"value\" | ToNumber }}" # Templating supported
+              condition: ""  # Templating supported
+    # Individual mapping per unit example
+    #            - name: Temperature
+    #              description: Temperature sensor value.
+    #              namespace: ""
+    #              subsystem: ""
+    #              labels:
+    #                device: "{{ index .Properties \"deviceName\" }}"
+    #                deviceType: "{{ index .Properties \"deviceType\" }}"
+    #              type: Gauge
+    #              value: "{{ index .Properties \"value\" | ToNumber }}"
+    #              condition: "{{ if eq (index .Properties \"unit\") \"Temperature\" }}true{{else}}false{{end}}"
+    #            - name: Humidity
+    #              description: Humidity sensor value.
+    #              namespace: ""
+    #              subsystem: ""
+    #              labels:
+    #                device: "{{ index .Properties \"deviceName\" }}"
+    #                deviceType: "{{ index .Properties \"deviceType\" }}"
+    #              type: Gauge
+    #              value: "{{ index .Properties \"value\" | ToNumber }}"
+    #              condition: "{{ if eq (index .Properties \"unit\") \"Humidity\" }}true{{else}}false{{end}}"
+    #            - name: Battery
+    #              description: Battery sensor value.
+    #              namespace: ""
+    #              subsystem: ""
+    #              labels:
+    #                device: "{{ index .Properties \"deviceName\" }}"
+    #                deviceType: "{{ index .Properties \"deviceType\" }}"
+    #              type: Gauge
+    #              value: "{{ index .Properties \"value\" | ToNumber }}"
+    #              condition: "{{ if eq (index .Properties \"unit\") \"Battery\" }}true{{else}}false{{end}}"
     devices:
       - name: Your Sensor
         type: LYWSD03MMC
