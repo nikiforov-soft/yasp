@@ -2,15 +2,12 @@ package prometheus
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 
 	"github.com/nikiforov-soft/yasp/config"
@@ -20,35 +17,12 @@ import (
 
 type promeheus struct {
 	config       *config.Prometheus
-	server       *http.Server
 	metricByName map[string]any
 }
 
 func newPrometheus(_ context.Context, config *config.Prometheus) (*promeheus, error) {
-	mux := http.NewServeMux()
-	server := &http.Server{
-		Addr:    config.ListenAddr,
-		Handler: mux,
-	}
-	mux.Handle(config.Endpoint, promhttp.Handler())
-
-	go func() {
-		var err error
-		if config.TLS.CertificateFile != "" && config.TLS.PrivateKeyFile != "" {
-			logrus.Infof("prometheus output: listening on: https://%s/%s", config.ListenAddr, strings.TrimPrefix(config.Endpoint, "/"))
-			err = server.ListenAndServeTLS(config.TLS.CertificateFile, config.TLS.PrivateKeyFile)
-		} else {
-			logrus.Infof("prometheus output: listening on: http://%s/%s", config.ListenAddr, strings.TrimPrefix(config.Endpoint, "/"))
-			err = server.ListenAndServe()
-		}
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logrus.WithError(err).Error("prometheus: failed to listen and serve")
-		}
-	}()
-
 	return &promeheus{
 		config:       config,
-		server:       server,
 		metricByName: make(map[string]any),
 	}, nil
 }
@@ -191,8 +165,8 @@ func (p *promeheus) Publish(_ context.Context, data *output.Data) error {
 	return nil
 }
 
-func (p *promeheus) Close(ctx context.Context) error {
-	return p.server.Shutdown(ctx)
+func (p *promeheus) Close(_ context.Context) error {
+	return nil
 }
 
 func init() {
