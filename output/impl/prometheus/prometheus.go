@@ -1,4 +1,4 @@
-package influxdb2
+package prometheus
 
 import (
 	"bytes"
@@ -117,7 +117,7 @@ func (p *promeheus) Publish(_ context.Context, data *output.Data) error {
 	logrus.
 		WithField("data", string(data.Data)).
 		WithField("properties", data.Properties).
-		Info("prometheus data")
+		Debug("prometheus data")
 
 	for _, mapping := range p.config.MetricsMapping {
 		conditionBytes, err := templateProcess(mapping.Name, mapping.Condition, data)
