@@ -8,11 +8,21 @@ import (
 
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	"github.com/influxdata/influxdb-client-go/v2/domain"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/sirupsen/logrus"
 
 	"github.com/nikiforov-soft/yasp/config"
 	"github.com/nikiforov-soft/yasp/output"
 	"github.com/nikiforov-soft/yasp/template"
+)
+
+var (
+	eventsProcessedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name:      "output_events_published",
+		Help:      "The amount of events influxdb output published.",
+		Namespace: "influxdb2",
+	}, []string{"bucket"})
 )
 
 type influxdb struct {
@@ -114,6 +124,9 @@ func (i *influxdb) Publish(ctx context.Context, data *output.Data) error {
 	if err := writeApi.WritePoint(ctx, point); err != nil {
 		return fmt.Errorf("influxdb2 output: failed to write point: %w", err)
 	}
+
+	eventsProcessedCounter.WithLabelValues(i.config.Bucket).Inc()
+
 	return nil
 }
 

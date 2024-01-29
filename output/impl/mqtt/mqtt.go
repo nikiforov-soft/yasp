@@ -7,11 +7,21 @@ import (
 
 	"github.com/eclipse/paho.golang/autopaho"
 	"github.com/eclipse/paho.golang/paho"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/sirupsen/logrus"
 
 	"github.com/nikiforov-soft/yasp/config"
 	"github.com/nikiforov-soft/yasp/output"
 	"github.com/nikiforov-soft/yasp/template"
+)
+
+var (
+	eventsProcessedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name:      "output_events_published",
+		Help:      "The amount of events mqtt output published.",
+		Namespace: "mqtt",
+	}, []string{"topic"})
 )
 
 type mqttOutput struct {
@@ -85,6 +95,8 @@ func (mo *mqttOutput) Publish(ctx context.Context, data *output.Data) error {
 	if err != nil {
 		return fmt.Errorf("mqtt output: failed to publish message: %w", err)
 	}
+
+	eventsProcessedCounter.WithLabelValues(topic).Inc()
 
 	return nil
 }
