@@ -25,8 +25,6 @@ type promeheus struct {
 }
 
 func newPrometheus(_ context.Context, config *config.Prometheus) (*promeheus, error) {
-	logrus.Info("prometheus output: listening")
-
 	mux := http.NewServeMux()
 	server := &http.Server{
 		Addr:    config.ListenAddr,
@@ -37,8 +35,10 @@ func newPrometheus(_ context.Context, config *config.Prometheus) (*promeheus, er
 	go func() {
 		var err error
 		if config.TLS.CertificateFile != "" && config.TLS.PrivateKeyFile != "" {
+			logrus.Infof("prometheus output: listening on: https://%s/%s", config.ListenAddr, strings.TrimPrefix(config.Endpoint, "/"))
 			err = server.ListenAndServeTLS(config.TLS.CertificateFile, config.TLS.PrivateKeyFile)
 		} else {
+			logrus.Infof("prometheus output: listening on: http://%s/%s", config.ListenAddr, strings.TrimPrefix(config.Endpoint, "/"))
 			err = server.ListenAndServe()
 		}
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
