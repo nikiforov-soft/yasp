@@ -20,7 +20,8 @@ var (
 	eventsProcessedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name:      "input_events_processed",
 		Help:      "The amount of events memphis input processed.",
-		Namespace: "memphis",
+		Namespace: "yasp",
+		Subsystem: "memphis",
 	}, []string{"station"})
 )
 

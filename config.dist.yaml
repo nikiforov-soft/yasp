@@ -1,3 +1,5 @@
+# This configuration uses go templates
+# You can use https://gotemplate.io/ to test your template configuration
 version: 1
 sensors:
   - enabled: false
@@ -66,14 +68,13 @@ sensors:
           tls:
             certificateFile: ""
             privateKeyFile: ""
-          # Go template live previewer https://gotemplate.io/
           metricsMapping:
-            - name: "{{ index .Properties \"unit\" }}" # Templating supported
+            - name: "{{- index .Properties \"unit\" | ToLower -}}" # Templating supported
               description: "sensor value." # Templating supported
-              namespace: "{{ index .Properties \"deviceType\" }}" # Templating supported
-              subsystem: "" # Templating supported
+              namespace: "yasp"
+              subsystem: "{{- index .Properties \"deviceType\" | ToLower -}}" # Templating supported
               labels:
-                device: "{{ index .Properties \"deviceName\" }}" # Templating supported on both keys and values
+                device: "{{- index .Properties \"deviceName\" -}}" # Templating supported on both keys and values
               type: Gauge # Templating supported
               value: "{{ index .Properties \"value\" | ToNumber }}" # Templating supported
               condition: ""  # Templating supported
@@ -87,7 +88,7 @@ sensors:
     #                deviceType: "{{ index .Properties \"deviceType\" }}"
     #              type: Gauge
     #              value: "{{ index .Properties \"value\" | ToNumber }}"
-    #              condition: "{{ if eq (index .Properties \"unit\") \"Temperature\" }}true{{else}}false{{end}}"
+    #              condition: "{{ eq (index .Properties \"unit\") \"Temperature\" }}"
     #            - name: Humidity
     #              description: Humidity sensor value.
     #              namespace: ""
@@ -97,7 +98,7 @@ sensors:
     #                deviceType: "{{ index .Properties \"deviceType\" }}"
     #              type: Gauge
     #              value: "{{ index .Properties \"value\" | ToNumber }}"
-    #              condition: "{{ if eq (index .Properties \"unit\") \"Humidity\" }}true{{else}}false{{end}}"
+    #              condition: "{{ eq (index .Properties \"unit\") \"Humidity\" }}"
     #            - name: Battery
     #              description: Battery sensor value.
     #              namespace: ""
@@ -107,7 +108,7 @@ sensors:
     #                deviceType: "{{ index .Properties \"deviceType\" }}"
     #              type: Gauge
     #              value: "{{ index .Properties \"value\" | ToNumber }}"
-    #              condition: "{{ if eq (index .Properties \"unit\") \"Battery\" }}true{{else}}false{{end}}"
+    #              condition: "{{- if eq (index .Properties \"unit\") \"Battery\" -}}true{{- else - }}false{{- end -}}"
     devices:
       - name: Your Sensor
         type: LYWSD03MMC

@@ -21,7 +21,8 @@ var (
 	eventsProcessedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name:      "output_events_published",
 		Help:      "The amount of events influxdb output published.",
-		Namespace: "influxdb2",
+		Namespace: "yasp",
+		Subsystem: "influxdb2",
 	}, []string{"bucket"})
 )
 

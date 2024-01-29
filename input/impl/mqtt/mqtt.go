@@ -21,7 +21,8 @@ var (
 	eventsProcessedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name:      "input_events_processed",
 		Help:      "The amount of events mqtt input processed.",
-		Namespace: "mqtt",
+		Namespace: "yasp",
+		Subsystem: "mqtt",
 	}, []string{"topic"})
 )
 
