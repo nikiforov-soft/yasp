@@ -21,7 +21,7 @@ import (
 type promeheus struct {
 	config       *config.Prometheus
 	server       *http.Server
-	metricByName map[string]prometheus.Metric
+	metricByName map[string]any
 }
 
 func newPrometheus(_ context.Context, config *config.Prometheus) (*promeheus, error) {
@@ -49,7 +49,7 @@ func newPrometheus(_ context.Context, config *config.Prometheus) (*promeheus, er
 	return &promeheus{
 		config:       config,
 		server:       server,
-		metricByName: make(map[string]prometheus.Metric),
+		metricByName: make(map[string]any),
 	}, nil
 }
 
@@ -60,93 +60,132 @@ func (p *promeheus) Publish(_ context.Context, data *output.Data) error {
 		Debug("prometheus data")
 
 	for _, mapping := range p.config.MetricsMapping {
-		conditionBytes, err := template.Execute(mapping.Name, mapping.Condition, data)
-		if err != nil {
-			return fmt.Errorf("prometheus: failed to process condition template: %w", err)
+		if mapping.Condition != "" {
+			conditionBytes, err := template.Execute("mapping.condition", mapping.Condition, data)
+			if err != nil {
+				return fmt.Errorf("prometheus: failed to process condition template: %w", err)
+			}
+
+			conditionValue, err := strconv.ParseBool(string(conditionBytes))
+			if err != nil {
+				return fmt.Errorf("prometheus: failed to parse condition as boolean: %w", err)
+			}
+
+			if !conditionValue {
+				continue
+			}
 		}
 
-		conditionValue, err := strconv.ParseBool(string(conditionBytes))
-		if err != nil {
-			return fmt.Errorf("prometheus: failed to parse condition as boolean: %w", err)
-		}
-
-		if !conditionValue {
-			continue
-		}
-
-		value, err := template.Execute(mapping.Name, mapping.Value, data)
+		value, err := template.Execute("mapping.value", mapping.Value, data)
 		if err != nil {
 			return fmt.Errorf("prometheus: failed to process value template: %w", err)
 		}
 
-		metric, exists := p.metricByName[mapping.Name]
-		if !exists {
-			switch strings.ToLower(mapping.Type) {
-			case "counter":
-				metric = promauto.NewCounter(prometheus.CounterOpts{
-					Namespace:   mapping.Namespace,
-					Subsystem:   mapping.Subsystem,
-					Name:        mapping.Name,
-					Help:        mapping.Description,
-					ConstLabels: mapping.Labels,
-				})
-			case "gauge":
-				metric = promauto.NewGauge(prometheus.GaugeOpts{
-					Namespace:   mapping.Namespace,
-					Subsystem:   mapping.Subsystem,
-					Name:        mapping.Name,
-					Help:        mapping.Description,
-					ConstLabels: mapping.Labels,
-				})
-			case "summary":
-				metric = promauto.NewSummary(prometheus.SummaryOpts{
-					Namespace:   mapping.Namespace,
-					Subsystem:   mapping.Subsystem,
-					Name:        mapping.Name,
-					Help:        mapping.Description,
-					ConstLabels: mapping.Labels,
-				})
-			case "histogram":
-				metric = promauto.NewHistogram(prometheus.HistogramOpts{
-					Namespace:   mapping.Namespace,
-					Subsystem:   mapping.Subsystem,
-					Name:        mapping.Name,
-					Help:        mapping.Description,
-					ConstLabels: mapping.Labels,
-				})
-			default:
-				return fmt.Errorf("prometheus: unsupported type: %s", mapping.Type)
+		namespace, err := template.Execute("mapping.namespace", mapping.Namespace, data)
+		if err != nil {
+			return fmt.Errorf("prometheus: failed to process namespace template: %w", err)
+		}
+
+		subsystem, err := template.Execute("mapping.subsystem", mapping.Subsystem, data)
+		if err != nil {
+			return fmt.Errorf("prometheus: failed to process subsystem template: %w", err)
+		}
+
+		name, err := template.Execute("mapping.name", mapping.Name, data)
+		if err != nil {
+			return fmt.Errorf("prometheus: failed to process name template: %w", err)
+		}
+
+		description, err := template.Execute("mapping.description", mapping.Description, data)
+		if err != nil {
+			return fmt.Errorf("prometheus: failed to process description template: %w", err)
+		}
+
+		mappingType, err := template.Execute("mapping.type", mapping.Type, data)
+		if err != nil {
+			return fmt.Errorf("prometheus: failed to process type template: %w", err)
+		}
+
+		labelKeys := make([]string, 0, len(mapping.Labels))
+		labelValues := make([]string, 0, len(mapping.Labels))
+		for k, v := range mapping.Labels {
+			labelKey, err := template.Execute("mapping.label.key", k, data)
+			if err != nil {
+				return fmt.Errorf("prometheus: failed to process label key template: %w", err)
 			}
-			p.metricByName[mapping.Name] = metric
+
+			labelValue, err := template.Execute("mapping.label.value", v, data)
+			if err != nil {
+				return fmt.Errorf("prometheus: failed to process label value template: %w", err)
+			}
+
+			labelKeys = append(labelKeys, string(labelKey))
+			labelValues = append(labelValues, string(labelValue))
+		}
+
+		metric, exists := p.metricByName[string(name)]
+		if !exists {
+			switch strings.ToLower(string(mappingType)) {
+			case "counter":
+				metric = promauto.NewCounterVec(prometheus.CounterOpts{
+					Namespace: string(namespace),
+					Subsystem: string(subsystem),
+					Name:      string(name),
+					Help:      string(description),
+				}, labelKeys)
+			case "gauge":
+				metric = promauto.NewGaugeVec(prometheus.GaugeOpts{
+					Namespace: string(namespace),
+					Subsystem: string(subsystem),
+					Name:      string(name),
+					Help:      string(description),
+				}, labelKeys)
+			case "summary":
+				metric = promauto.NewSummaryVec(prometheus.SummaryOpts{
+					Namespace:  string(namespace),
+					Subsystem:  string(subsystem),
+					Name:       string(name),
+					Help:       string(description),
+					Objectives: mapping.Objectives,
+					MaxAge:     mapping.MaxAge,
+					AgeBuckets: mapping.AgeBuckets,
+					BufCap:     mapping.BufCap,
+				}, labelKeys)
+			case "histogram":
+				metric = promauto.NewHistogramVec(prometheus.HistogramOpts{
+					Namespace:                       string(namespace),
+					Subsystem:                       string(subsystem),
+					Name:                            string(name),
+					Help:                            string(description),
+					Buckets:                         mapping.Buckets,
+					NativeHistogramBucketFactor:     mapping.NativeHistogramBucketFactor,
+					NativeHistogramZeroThreshold:    mapping.NativeHistogramZeroThreshold,
+					NativeHistogramMaxBucketNumber:  mapping.NativeHistogramMaxBucketNumber,
+					NativeHistogramMinResetDuration: mapping.NativeHistogramMinResetDuration,
+					NativeHistogramMaxZeroThreshold: mapping.NativeHistogramMaxZeroThreshold,
+				}, labelKeys)
+			default:
+				return fmt.Errorf("prometheus: unsupported type: %s", string(mappingType))
+			}
+			p.metricByName[string(name)] = metric
+		}
+
+		floatValue, err := template.AsNumber(value)
+		if err != nil {
+			return fmt.Errorf("prometheus: failed to parse value as float64: %s - %w", string(value), err)
 		}
 
 		switch m := metric.(type) {
-		case prometheus.Gauge:
-			v, err := template.AsNumber(value)
-			if err != nil {
-				return fmt.Errorf("prometheus: failed to parse gauge value as float64: %s - %w", string(value), err)
-			}
-			m.Set(v)
-		case prometheus.Summary:
-			v, err := template.AsNumber(value)
-			if err != nil {
-				return fmt.Errorf("prometheus: failed to parse summary value as float64: %s - %w", string(value), err)
-			}
-			m.Observe(v)
-		case prometheus.Histogram:
-			v, err := template.AsNumber(value)
-			if err != nil {
-				return fmt.Errorf("prometheus: failed to parse histogram value as float64: %s - %w", string(value), err)
-			}
-			m.Observe(v)
-		case prometheus.Counter:
-			v, err := template.AsNumber(value)
-			if err != nil {
-				return fmt.Errorf("prometheus: failed to parse counter value as float64: %s - %w", string(value), err)
-			}
-			m.Add(v)
+		case *prometheus.CounterVec:
+			m.WithLabelValues(labelValues...).Add(floatValue)
+		case *prometheus.GaugeVec:
+			m.WithLabelValues(labelValues...).Set(floatValue)
+		case *prometheus.SummaryVec:
+			m.WithLabelValues(labelValues...).Observe(floatValue)
+		case *prometheus.HistogramVec:
+			m.WithLabelValues(labelValues...).Observe(floatValue)
 		default:
-			return fmt.Errorf("prometheus: unsupported type: %s", mapping.Type)
+			return fmt.Errorf("prometheus: unsupported type: %s", string(mappingType))
 		}
 	}
 	return nil
