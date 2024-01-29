@@ -8,10 +8,20 @@ import (
 	"sync"
 
 	"github.com/memphisdev/memphis.go"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/sirupsen/logrus"
 
 	"github.com/nikiforov-soft/yasp/config"
 	"github.com/nikiforov-soft/yasp/input"
+)
+
+var (
+	eventsProcessedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name:      "input_events_processed",
+		Help:      "The amount of events memphis input processed.",
+		Namespace: "memphis",
+	}, []string{"station"})
 )
 
 type memphisInput struct {
@@ -88,7 +98,11 @@ func (mi *memphisInput) messageHandler(messages []*memphis.Msg, err error, ctx c
 	defer mi.activeChannelsLock.Unlock()
 
 	for _, message := range messages {
-		logrus.WithField("headers", message.GetHeaders()).WithField("payload", string(message.Data())).Debug("input received")
+		logrus.
+			WithField("headers", message.GetHeaders()).
+			WithField("payload", string(message.Data())).
+			Debug("input received")
+
 		data := &input.Data{
 			Data:       message.Data(),
 			Properties: make(map[string]interface{}),
@@ -124,6 +138,8 @@ func (mi *memphisInput) messageHandler(messages []*memphis.Msg, err error, ctx c
 		for _, channel := range mi.activeChannels {
 			channel <- data
 		}
+
+		eventsProcessedCounter.WithLabelValues(mi.config.Station).Inc()
 	}
 }
 
