@@ -1,80 +1,29 @@
 package influxdb2
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
-	"strings"
-	"text/template"
 	"time"
 
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	"github.com/influxdata/influxdb-client-go/v2/domain"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/sirupsen/logrus"
 
 	"github.com/nikiforov-soft/yasp/config"
 	"github.com/nikiforov-soft/yasp/output"
+	"github.com/nikiforov-soft/yasp/template"
 )
 
 var (
-	funcsMap = map[string]any{
-		"ToLower":    strings.ToLower,
-		"ToUpper":    strings.ToUpper,
-		"TrimSpaces": strings.TrimSpace,
-		"TrimPrefix": strings.TrimPrefix,
-		"TrimSuffix": strings.TrimSuffix,
-		"ToNumber": func(value any) any {
-			var stringValue string
-			switch value := value.(type) {
-			case uint8:
-				return value
-			case uint16:
-				return value
-			case uint32:
-				return value
-			case uint64:
-				return value
-			case int8:
-				return value
-			case int16:
-				return value
-			case int32:
-				return value
-			case int64:
-				return value
-			case float64:
-				return value
-			case float32:
-				return value
-			case []byte:
-				stringValue = string(value)
-			case string:
-				stringValue = value
-			default:
-				return fmt.Sprintf("%v", value)
-			}
-
-			if float64Value, err := strconv.ParseFloat(stringValue, 64); err == nil {
-				return float64Value
-			}
-
-			if int64Value, err := strconv.ParseInt(stringValue, 10, 64); err == nil {
-				return int64Value
-			}
-
-			return stringValue
-		},
-		"Split": strings.Split,
-		"Last": func(values []string) string {
-			if len(values) == 0 {
-				return ""
-			}
-			return values[len(values)-1]
-		},
-		"Quote": strconv.Quote,
-	}
+	eventsProcessedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name:      "output_events_published",
+		Help:      "The amount of events influxdb output published.",
+		Namespace: "yasp",
+		Subsystem: "influxdb2",
+	}, []string{"bucket"})
 )
 
 type influxdb struct {
@@ -130,7 +79,7 @@ func newInfluxDb2(ctx context.Context, config *config.InfluxDb2) (*influxdb, err
 func (i *influxdb) Publish(ctx context.Context, data *output.Data) error {
 	writeApi := i.client.WriteAPIBlocking(i.config.OrganizationId, i.config.Bucket)
 
-	measurement, err := templateProcess("measurement", i.config.Measurement, data)
+	measurement, err := template.Execute("measurement", i.config.Measurement, data)
 	if err != nil {
 		return err
 	}
@@ -143,7 +92,7 @@ func (i *influxdb) Publish(ctx context.Context, data *output.Data) error {
 			continue
 		}
 
-		value, err := templateProcess(tagKey, tagValue, data)
+		value, err := template.Execute(tagKey, tagValue, data)
 		if err != nil {
 			return err
 		}
@@ -156,13 +105,13 @@ func (i *influxdb) Publish(ctx context.Context, data *output.Data) error {
 			continue
 		}
 
-		value, err := templateProcess(fieldKey, fieldValue, data)
+		value, err := template.Execute(fieldKey, fieldValue, data)
 		if err != nil {
 			return err
 		}
 
-		if isNumber(value) {
-			float64Value, err := asNumber(value)
+		if template.IsNumber(value) {
+			float64Value, err := template.AsNumber(value)
 			if err != nil {
 				return fmt.Errorf("influxdb2 output: failed to parse %s as number: %w", string(value), err)
 			}
@@ -176,52 +125,10 @@ func (i *influxdb) Publish(ctx context.Context, data *output.Data) error {
 	if err := writeApi.WritePoint(ctx, point); err != nil {
 		return fmt.Errorf("influxdb2 output: failed to write point: %w", err)
 	}
+
+	eventsProcessedCounter.WithLabelValues(i.config.Bucket).Inc()
+
 	return nil
-}
-
-func templateProcess(templateKey string, templateValue string, data any) ([]byte, error) {
-	tmpl, err := template.New(templateKey).Funcs(funcsMap).Parse(templateValue)
-	if err != nil {
-		return nil, fmt.Errorf("influxdb2 output: failed to parse glob: %w", err)
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		return nil, fmt.Errorf("influxdb2 output: failed to execute %s mapping template: - %w", templateKey, err)
-	}
-	return buf.Bytes(), nil
-}
-
-func isNumber(n []byte) bool {
-	if len(n) > 0 && n[0] == '-' {
-		n = n[1:]
-	}
-	if len(n) == 0 {
-		return false
-	}
-
-	var hasPoint bool
-	for _, c := range n {
-		if c >= '0' && c <= '9' {
-			continue
-		}
-		if c == '.' && len(n) > 1 && !hasPoint {
-			hasPoint = true
-			continue
-		}
-		return false
-	}
-	return true
-}
-
-func asNumber(data []byte) (float64, error) {
-	if float64Value, err := strconv.ParseFloat(string(data), 64); err == nil {
-		return float64Value, nil
-	}
-	if int64Value, err := strconv.ParseInt(string(data), 10, 64); err == nil {
-		return float64(int64Value), nil
-	}
-	return 0, fmt.Errorf("failed to parse %s as number", string(data))
 }
 
 func (i *influxdb) Close(_ context.Context) error {

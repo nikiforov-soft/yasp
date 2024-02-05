@@ -7,6 +7,7 @@ import (
 )
 
 type Config struct {
+	Metrics Metrics   `yaml:"metrics"`
 	Sensors []*Sensor `yaml:"sensors"`
 }
 
