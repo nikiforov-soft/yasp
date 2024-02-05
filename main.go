@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,6 +14,7 @@ import (
 	"go.uber.org/automaxprocs/maxprocs"
 
 	"github.com/nikiforov-soft/yasp/config"
+	"github.com/nikiforov-soft/yasp/metrics"
 	"github.com/nikiforov-soft/yasp/process"
 
 	// Side effect imports
@@ -83,6 +86,15 @@ func main() {
 		}
 	}
 
+	metricsService := metrics.NewService(conf.Metrics)
+	if conf.Metrics.Enabled {
+		go func() {
+			if err := metricsService.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				logrus.WithError(err).Error("metrics failed to listen and serve")
+			}
+		}()
+	}
+
 	processService, err := process.NewService(context.Background(), conf.Sensors)
 	if err != nil {
 		logrus.
@@ -95,9 +107,15 @@ func main() {
 	signal.Notify(shutdownChan, syscall.SIGTERM, syscall.SIGINT)
 
 	<-shutdownChan
-	logrus.Info("Shutting down")
+	logrus.Info("Shutting down...")
 
+	logrus.Info("Shutting down process service...")
 	if err := processService.Close(); err != nil {
 		logrus.WithError(err).Error("failed to shutdown process service")
+	}
+
+	logrus.Info("Shutting down metrics service...")
+	if err := metricsService.Shutdown(context.Background()); err != nil {
+		logrus.WithError(err).Error("failed to shutdown metrics service")
 	}
 }

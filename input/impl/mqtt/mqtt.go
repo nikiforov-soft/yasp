@@ -9,10 +9,21 @@ import (
 
 	"github.com/eclipse/paho.golang/autopaho"
 	"github.com/eclipse/paho.golang/paho"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/sirupsen/logrus"
 
 	"github.com/nikiforov-soft/yasp/config"
 	"github.com/nikiforov-soft/yasp/input"
+)
+
+var (
+	eventsProcessedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name:      "input_events_processed",
+		Help:      "The amount of events mqtt input processed.",
+		Namespace: "yasp",
+		Subsystem: "mqtt",
+	}, []string{"topic"})
 )
 
 type mqttInput struct {
@@ -120,6 +131,8 @@ func (mi *mqttInput) Close(ctx context.Context) error {
 func (mi *mqttInput) messageHandler(publish *paho.Publish) {
 	mi.activeChannelsLock.Lock()
 	defer mi.activeChannelsLock.Unlock()
+
+	eventsProcessedCounter.WithLabelValues(publish.Topic).Inc()
 
 	logrus.WithField("payload", string(publish.Payload)).Debug("input received")
 	for _, channel := range mi.activeChannels {

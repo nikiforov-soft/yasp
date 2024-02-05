@@ -82,6 +82,12 @@ func (s *service) init(ctx context.Context, sensorsConfig []*config.Sensor) erro
 					return fmt.Errorf("process: failed to initialize influxdb2 output: %w", err)
 				}
 				outputContainer.Output = outputImpl
+			} else if prometheus := o.Prometheus; prometheus != nil && prometheus.Enabled {
+				outputImpl, err := output.NewOutput(ctx, "prometheus", o)
+				if err != nil {
+					return fmt.Errorf("process: failed to initialize prometheus output: %w", err)
+				}
+				outputContainer.Output = outputImpl
 			}
 
 			if outputContainer.Output == nil {
