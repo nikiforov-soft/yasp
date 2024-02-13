@@ -72,7 +72,7 @@ sensors:
           enabled: false
           metricsMapping:
             - name: |
-                {{- index .Properties "unit"  -}}
+                {{- index .Properties "unit" | ToLower -}}
                 {{- if eq (index .Properties "unit") "Temperature" -}}
                 _celsius
                 {{- else if or (eq (index .Properties "unit") "Humidity") (eq (index .Properties "unit") "Battery") -}}
