@@ -81,7 +81,7 @@ func (p *promeheus) Publish(_ context.Context, data *output.Data) error {
 		}
 
 		labelKeys := make([]string, 0, len(mapping.Labels))
-		labelValues := make([]string, 0, len(mapping.Labels))
+		labels := make(prometheus.Labels)
 		for k, v := range mapping.Labels {
 			labelKey, err := template.Execute("mapping.label.key", k, data)
 			if err != nil {
@@ -94,7 +94,7 @@ func (p *promeheus) Publish(_ context.Context, data *output.Data) error {
 			}
 
 			labelKeys = append(labelKeys, string(labelKey))
-			labelValues = append(labelValues, string(labelValue))
+			labels[string(labelKey)] = string(labelValue)
 		}
 
 		metric, exists := p.metricByName[string(name)]
@@ -151,13 +151,13 @@ func (p *promeheus) Publish(_ context.Context, data *output.Data) error {
 
 		switch m := metric.(type) {
 		case *prometheus.CounterVec:
-			m.WithLabelValues(labelValues...).Add(floatValue)
+			m.With(labels).Add(floatValue)
 		case *prometheus.GaugeVec:
-			m.WithLabelValues(labelValues...).Set(floatValue)
+			m.With(labels).Set(floatValue)
 		case *prometheus.SummaryVec:
-			m.WithLabelValues(labelValues...).Observe(floatValue)
+			m.With(labels).Observe(floatValue)
 		case *prometheus.HistogramVec:
-			m.WithLabelValues(labelValues...).Observe(floatValue)
+			m.With(labels).Observe(floatValue)
 		default:
 			return fmt.Errorf("prometheus: unsupported type: %s", string(mappingType))
 		}
