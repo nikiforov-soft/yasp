@@ -71,12 +71,19 @@ sensors:
       - prometheus:
           enabled: false
           metricsMapping:
-            - name: "{{- index .Properties \"unit\" | ToLower -}}" # Templating supported
+            - name: |
+                {{- index .Properties "unit"  -}}
+                {{- if eq (index .Properties "unit") "Temperature" -}}
+                _celsius
+                {{- else if or (eq (index .Properties "unit") "Humidity") (eq (index .Properties "unit") "Battery") -}}
+                _percent
+                {{- end -}}
               description: "sensor value." # Templating supported
               namespace: "yasp"
               subsystem: "{{- index .Properties \"deviceType\" | ToLower -}}" # Templating supported
               labels:
                 device: "{{- index .Properties \"deviceName\" -}}" # Templating supported on both keys and values
+                deviceType: "{{- index .Properties \"deviceType\" -}}"
               type: Gauge # Templating supported
               value: "{{ index .Properties \"value\" | ToNumber }}" # Templating supported
               condition: ""  # Templating supported
