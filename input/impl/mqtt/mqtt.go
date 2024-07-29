@@ -79,7 +79,7 @@ func (mi *mqttInput) Subscribe(ctx context.Context) (<-chan *input.Data, error) 
 		},
 		OnConnectError: func(err error) { logrus.WithError(err).Error("mqtt input: failed to connect to server") },
 		ClientConfig: paho.ClientConfig{
-			Router:        paho.NewSingleHandlerRouter(mi.messageHandler),
+			Router:        paho.NewStandardRouterWithDefault(mi.messageHandler),
 			OnClientError: func(err error) { logrus.WithError(err).Error("mqtt input: server requested disconnect") },
 			OnServerDisconnect: func(d *paho.Disconnect) {
 				if d.Properties != nil {
@@ -92,7 +92,8 @@ func (mi *mqttInput) Subscribe(ctx context.Context) (<-chan *input.Data, error) 
 	}
 
 	if len(mi.config.Username) != 0 && len(mi.config.Password) != 0 {
-		clientConfig.SetUsernamePassword(mi.config.Username, []byte(mi.config.Password))
+		clientConfig.ConnectUsername = mi.config.Username
+		clientConfig.ConnectPassword = []byte(mi.config.Password)
 	}
 
 	mi.activeChannelsLock.Lock()
