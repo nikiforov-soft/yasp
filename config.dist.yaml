@@ -2,15 +2,15 @@
 # You can use https://gotemplate.io/ to test your template configuration
 version: 1
 metrics:
-  enabled: false
+  enabled: true
   listenAddr: ":6123"
   endpoint: "/metrics"
   tls:
     certificateFile: ""
     privateKeyFile: ""
 sensors:
-  - enabled: false
-    name: Xiaomi Mi Temperature and Humidity Monitor 2
+  - name: Xiaomi Mi Temperature and Humidity Monitor 2
+    enabled: false
     input:
       transforms:
         - name: ble-to-mqtt
@@ -124,40 +124,72 @@ sensors:
         properties:
           macAddress: "A4:C1:38:AB:CD:EF"
           encryptionKey: "0abcdef0000000000000000000000000"
-  - enabled: false
-    name: P1P2 HVAC
+  - name: P1P2 HVAC
+    enabled: true
     input:
       mqtt:
         enabled: true
         topics:
-          - "P1P2/P/<last digit of the ip>/T/8/IULiquidPipeTemperature"
-          - "P1P2/P/<last digit of the ip>/T/8/IUAirInletTemperature"
-          - "P1P2/P/<last digit of the ip>/T/8/IUAirOutletTemperature"
+          - "P1P2/R/P1P2MQTT/#"
         brokerUrls:
           - tcp://localhost:1883
         clientId: P1P2_Subscriber
         keepAlive: 5
         connectRetryDelay: 5s
     outputs:
-      - influxdb2:
+      - prometheus:
           enabled: true
-          url: "http://localhost:8086/"
-          authToken: "your auth token"
-          organizationId: "your organization id"
-          bucket: sensors
-          measurement: "{{ index .Properties \"unit\" }}"
-          useGZip: true
-          batchSize: 0
-          tagMapping:
-            type: "{{ index .Properties \"type\" }}"
-            unit: "{{ index .Properties \"unit\" }}"
-            description: "{{ index .Properties \"description\" }}"
-          fieldMapping:
-            unit: "{{ index .Properties \"unit\" }}"
-            value: "{{ index .Properties \"value\" | ToNumber }}"
+          metricsMapping:
+            - name: "temperature"
+              description: "p1p2 target temperature."
+              type: Gauge
+              value: "{{ index .Properties \"temperature\" | ToNumber }}"
+              namespace: "yasp"
+              subsystem: "p1p2"
+              labels:
+                device: "{{ index .Properties \"bridge\" }}"
+            - name: "status"
+              description: "p1p2 operation status."
+              type: Gauge
+              value: "{{ index .Properties \"status\" | ToNumber }}"
+              namespace: "yasp"
+              subsystem: "p1p2"
+              labels:
+                device: "{{ index .Properties \"bridge\" }}"
+            - name: "testMode"
+              description: "p1p2 test mode status."
+              type: Gauge
+              value: "{{ index .Properties \"testMode\" | ToNumber }}"
+              namespace: "yasp"
+              subsystem: "p1p2"
+              labels:
+                device: "{{ index .Properties \"bridge\" }}"
+            - name: "errorCode"
+              description: "p1p2 error code."
+              type: Gauge
+              value: "{{ index .Properties \"errorCode\" | ToNumber }}"
+              namespace: "yasp"
+              subsystem: "p1p2"
+              labels:
+                device: "{{ index .Properties \"bridge\" }}"
+            - name: "mode"
+              description: "p1p2 mode, 1 = cooling, 2 = heating."
+              type: Gauge
+              value: "{{ index .Properties \"modeId\" | ToNumber }}"
+              namespace: "yasp"
+              subsystem: "p1p2"
+              labels:
+                device: "{{ index .Properties \"bridge\" }}"
+            - name: "fanSpeed"
+              description: "p1p2 fan speed, 1 = low, 2 = medium, 3 = high."
+              type: Gauge
+              value: "{{ index .Properties \"fanSpeedId\" | ToNumber }}"
+              namespace: "yasp"
+              subsystem: "p1p2"
+              labels:
+                device: "{{ index .Properties \"bridge\" }}"
     devices:
       - name: Your Device
         type: p1p2
         properties:
-          allowedPrefixes: "P1P2/P/<last digit of the ip>/T/8/"
-          skipUnknown: true
+          allowedPrefixes: "P1P2/R/P1P2MQTT/"

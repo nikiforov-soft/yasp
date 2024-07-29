@@ -16,6 +16,11 @@ var (
 		"ToNumber": func(value any) any {
 			var stringValue string
 			switch value := value.(type) {
+			case bool:
+				if value {
+					return 1
+				}
+				return 0
 			case uint8:
 				return value
 			case uint16:

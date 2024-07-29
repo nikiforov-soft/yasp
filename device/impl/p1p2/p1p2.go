@@ -2,27 +2,19 @@ package p1p2
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/nikiforov-soft/yasp/config"
 	"github.com/nikiforov-soft/yasp/device"
 )
 
-const (
-	temperatureKey     = "IULiquidPipeTemperature"
-	statusKey          = "IUAirInletTemperature"
-	fanSpeedKey        = "IUAirOutletTemperature"
-	allowedPrefixesKey = "allowedPrefixes"
-	skipUnknownKey     = "skipUnknown"
+const allowedPrefixesKey = "allowedPrefixes"
 
-	fanSpeedHighBit   = 1 << 1
-	fanSpeedMediumBit = 1 << 2
-	fanSpeedLowBit    = 1 << 3
-)
+var p1p2MessagePattern = regexp.MustCompile("^[a-zA-Z] [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} [a-zA-Z] +([0-9.]+:)? ([a-fA-F0-9]+)$")
 
 type p1p2 struct {
 	config *config.Device
@@ -48,15 +40,6 @@ func (p *p1p2) Decode(_ context.Context, data *device.Data) (*device.Data, error
 		}
 	}
 
-	if !strings.HasSuffix(inputTopic, temperatureKey) &&
-		!strings.HasSuffix(inputTopic, statusKey) &&
-		!strings.HasSuffix(inputTopic, fanSpeedKey) {
-		if skipUnknown, exists := p.config.Properties[skipUnknownKey]; exists && strings.ToLower(skipUnknown) == "true" {
-			return nil, nil
-		}
-		return data, nil
-	}
-
 	lastSlashIndex := strings.LastIndex(inputTopic, "/")
 	if lastSlashIndex == -1 {
 		return data, nil
@@ -71,71 +54,42 @@ func (p *p1p2) Decode(_ context.Context, data *device.Data) (*device.Data, error
 		properties[k] = v
 	}
 	properties["type"] = "p1p2"
+	properties["bridge"] = inputTopic[lastSlashIndex+1:]
 
-	unit := inputTopic[(lastSlashIndex + 1):]
-	value := data.Data
-
-	switch unit {
-	case statusKey:
-		properties["unit"] = "Status"
-		switch string(data.Data) {
-		case "8":
-			value = []byte("0")
-			properties["value"] = float64(0)
-			properties["description"] = "Off"
-		case "9":
-			value = []byte("1")
-			properties["value"] = float64(1)
-			properties["description"] = "On"
-		default:
-			logrus.
-				WithField("unit", unit).
-				WithField("value", string(value)).
-				Warn("unsupported value")
-			return nil, nil
-		}
-	case temperatureKey:
-		float64Value, err := strconv.ParseFloat(string(data.Data), 64)
-		if err != nil {
-			return nil, fmt.Errorf("p1p2: failed to parse data: %s as float64: %w", string(data.Data), err)
-		}
-		properties["unit"] = "Temperature"
-		properties["value"] = float64Value
-		properties["description"] = "Celsius"
-	case fanSpeedKey:
-		fanSpeedMask, err := strconv.ParseInt(string(data.Data), 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("p1p2: failed to parse data: %s as int: %w", string(data.Data), err)
-		}
-
-		var fanSpeed string
-		var fanSpeedValue int
-		if (fanSpeedMask & fanSpeedMediumBit) == fanSpeedMediumBit {
-			fanSpeed = "Medium"
-			fanSpeedValue = 2
-		} else if (fanSpeedMask & fanSpeedHighBit) == fanSpeedHighBit {
-			fanSpeed = "High"
-			fanSpeedValue = 3
-		} else if (fanSpeedMask & fanSpeedLowBit) == fanSpeedLowBit {
-			fanSpeed = "Low"
-			fanSpeedValue = 1
-		} else {
-			logrus.
-				WithField("unit", unit).
-				WithField("value", fanSpeedMask).
-				Warn("unsupported value")
-			return nil, nil
-		}
-		properties["unit"] = "Fan Speed"
-		properties["value"] = fanSpeedValue
-		properties["description"] = fanSpeed
-	default:
-		properties["unit"] = unit
-		properties["value"] = string(data.Data)
+	stringPayload := string(data.Data)
+	payloadMatches := p1p2MessagePattern.FindStringSubmatch(stringPayload)
+	if !strings.HasPrefix(stringPayload, "R ") {
+		return nil, nil
 	}
 
+	if len(payloadMatches) != 3 {
+		return nil, fmt.Errorf("invalid payload message format: %s", stringPayload)
+	}
+
+	hexString := strings.TrimSpace(payloadMatches[2])
+	if len(hexString) == 4 {
+		return nil, nil
+	}
+
+	msg, err := ParseHitachiMessage(hexString)
+	if err != nil {
+		if errors.Is(err, ErrUnknownDirection) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to parse p1p2 packet: %s - %w", stringPayload, err)
+	}
+
+	properties["temperature"] = strconv.Itoa(msg.Temperature)
+	properties["mode"] = msg.Mode.String()
+	properties["modeId"] = msg.Mode.Id()
+	properties["fanSpeed"] = msg.FanMode.String()
+	properties["fanSpeedId"] = msg.FanMode.Id()
+	properties["status"] = strconv.FormatBool(msg.Running)
+	properties["testMode"] = strconv.FormatBool(msg.TestMode)
+	properties["errorCode"] = strconv.Itoa(int(msg.ErrorCode))
+
 	return &device.Data{
-		Data:       value,
+		Data:       data.Data,
 		Properties: properties,
 	}, nil
 }
