@@ -3,9 +3,16 @@ package template
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 func AsNumber(data []byte) (float64, error) {
+	if strings.ToLower(string(data)) == "true" {
+		return 1, nil
+	}
+	if strings.ToLower(string(data)) == "false" {
+		return 0, nil
+	}
 	if float64Value, err := strconv.ParseFloat(string(data), 64); err == nil {
 		return float64Value, nil
 	}

@@ -41,6 +41,10 @@ func NewService(ctx context.Context, sensors []*config.Sensor) (Service, error) 
 func (s *service) init(ctx context.Context, sensorsConfig []*config.Sensor) error {
 	sensorGroups := make([]*sensorGroup, 0, len(sensorsConfig))
 	for _, sensorConfig := range sensorsConfig {
+		if !sensorConfig.Enabled {
+			logrus.WithField("sensor", sensorConfig.Name).Info("skipping disabled sensor")
+			continue
+		}
 		logrus.WithField("sensor", sensorConfig.Name).Info("initializing sensor")
 
 		var inputImpl input.Input
