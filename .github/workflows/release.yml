@@ -14,15 +14,15 @@ jobs:
       GOARCH: amd64
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Unshallow
         run: git fetch --prune --unshallow
 
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.22.5
+          go-version: 1.23.3
 
       - name: Downloading dependencies
         run: go mod download
@@ -39,7 +39,7 @@ jobs:
           DOCKER_REGISTRY: docker.pkg.github.com
 
       - name: GoReleaser
-        uses: goreleaser/goreleaser-action@v4
+        uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: latest
