@@ -229,7 +229,7 @@ func parseEventLength(reader io.Reader) (byte, error) {
 func parseEventData(eventType uint16, reader io.Reader) (Event, error) {
 	switch EventType(eventType) {
 	case EventTypeTemperature:
-		var eventData uint16
+		var eventData int16
 		if err := binary.Read(reader, binary.LittleEndian, &eventData); err != nil {
 			return nil, err
 		}
@@ -277,7 +277,7 @@ func parseEventData(eventType uint16, reader io.Reader) (Event, error) {
 			Battery: eventData,
 		}, nil
 	case EventTypeTemperatureAndHumidity:
-		var temperature uint16
+		var temperature int16
 		if err := binary.Read(reader, binary.LittleEndian, &temperature); err != nil {
 			return nil, err
 		}
