@@ -1,6 +1,7 @@
 package template
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -67,5 +68,14 @@ var (
 			return values[len(values)-1]
 		},
 		"Quote": strconv.Quote,
+		"JsonMarshal": func(value any) string {
+			b, _ := json.Marshal(value)
+			return string(b)
+		},
+		"JsonUnmarshal": func(jsonString string) map[string]any {
+			var result map[string]any
+			_ = json.Unmarshal([]byte(jsonString), &result)
+			return result
+		},
 	}
 )
