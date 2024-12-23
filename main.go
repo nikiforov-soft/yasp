@@ -76,16 +76,6 @@ func main() {
 		return
 	}
 
-	if _, ok := os.LookupEnv("KUBERNETES_SERVICE_HOST"); ok {
-		logrus.Info("detected kubernetes waiting for istio proxy")
-		if err := waitForIstioProxy(); err != nil {
-			logrus.
-				WithError(err).
-				Error("failed to wait for istio proxy")
-			return
-		}
-	}
-
 	metricsService := metrics.NewService(conf.Metrics)
 	if conf.Metrics.Enabled {
 		go func() {
