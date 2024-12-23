@@ -42,11 +42,11 @@ func NewMqttOutput(ctx context.Context, config *config.MqttOutput) (output.Outpu
 	}
 
 	clientConfig := autopaho.ClientConfig{
-		BrokerUrls:        config.GetBrokerUrls(),
-		KeepAlive:         keepAlive,
-		ConnectRetryDelay: connectRetryDelay,
-		OnConnectionUp:    func(*autopaho.ConnectionManager, *paho.Connack) { logrus.Info("mqtt output: connected to server") },
-		OnConnectError:    func(err error) { logrus.WithError(err).Error("mqtt output: failed to connect to  server") },
+		BrokerUrls:       config.GetBrokerUrls(),
+		KeepAlive:        keepAlive,
+		ReconnectBackoff: autopaho.NewConstantBackoff(connectRetryDelay),
+		OnConnectionUp:   func(*autopaho.ConnectionManager, *paho.Connack) { logrus.Info("mqtt output: connected to server") },
+		OnConnectError:   func(err error) { logrus.WithError(err).Error("mqtt output: failed to connect to  server") },
 		ClientConfig: paho.ClientConfig{
 			ClientID:      config.ClientId,
 			OnClientError: func(err error) { logrus.WithError(err).Error("output mqtt server requested disconnect") },
@@ -61,7 +61,8 @@ func NewMqttOutput(ctx context.Context, config *config.MqttOutput) (output.Outpu
 	}
 
 	if len(config.Username) != 0 && len(config.Password) != 0 {
-		clientConfig.SetUsernamePassword(config.Username, []byte(config.Password))
+		clientConfig.ConnectUsername = config.Username
+		clientConfig.ConnectPassword = []byte(config.Password)
 	}
 
 	connectionManager, err := autopaho.NewConnection(ctx, clientConfig)

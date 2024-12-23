@@ -51,9 +51,9 @@ func (mi *mqttInput) Subscribe(ctx context.Context) (<-chan *input.Data, error) 
 		connectRetryDelay = 5 * time.Second
 	}
 	clientConfig := autopaho.ClientConfig{
-		BrokerUrls:        mi.config.GetBrokerUrls(),
-		KeepAlive:         keepAlive,
-		ConnectRetryDelay: connectRetryDelay,
+		BrokerUrls:       mi.config.GetBrokerUrls(),
+		KeepAlive:        keepAlive,
+		ReconnectBackoff: autopaho.NewConstantBackoff(connectRetryDelay),
 		OnConnectionUp: func(cm *autopaho.ConnectionManager, connAck *paho.Connack) {
 			logrus.Info("mqtt input: connected to mqtt server")
 
