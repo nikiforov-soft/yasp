@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/nikiforov-soft/yasp/config"
+	"github.com/nikiforov-soft/yasp/metrics"
 	"github.com/nikiforov-soft/yasp/output"
 	"github.com/nikiforov-soft/yasp/template"
 )
@@ -108,7 +109,7 @@ func (mo *mqttOutput) Close(ctx context.Context) error {
 }
 
 func init() {
-	err := output.RegisterOutput("mqtt", func(ctx context.Context, config *config.Output) (output.Output, error) {
+	err := output.RegisterOutput("mqtt", func(ctx context.Context, config *config.Output, metricsService metrics.Service) (output.Output, error) {
 		return NewMqttOutput(ctx, config.Mqtt)
 	})
 	if err != nil {

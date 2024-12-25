@@ -85,7 +85,7 @@ func main() {
 		}()
 	}
 
-	processService, err := process.NewService(context.Background(), conf.Sensors)
+	processService, err := process.NewService(context.Background(), metricsService, conf.Sensors)
 	if err != nil {
 		logrus.
 			WithError(err).

@@ -13,6 +13,7 @@ import (
 	"github.com/nikiforov-soft/yasp/device"
 	"github.com/nikiforov-soft/yasp/input"
 	inputtransform "github.com/nikiforov-soft/yasp/input/transform"
+	"github.com/nikiforov-soft/yasp/metrics"
 	"github.com/nikiforov-soft/yasp/output"
 	outputtransform "github.com/nikiforov-soft/yasp/output/transform"
 )
@@ -22,15 +23,17 @@ type Service interface {
 }
 
 type service struct {
-	sensorGroups []*sensorGroup
-	wg           sync.WaitGroup
-	cancelFunc   context.CancelFunc
+	metricsService metrics.Service
+	sensorGroups   []*sensorGroup
+	wg             sync.WaitGroup
+	cancelFunc     context.CancelFunc
 }
 
-func NewService(ctx context.Context, sensors []*config.Sensor) (Service, error) {
+func NewService(ctx context.Context, metricsService metrics.Service, sensors []*config.Sensor) (Service, error) {
 	cancellableCtx, cancelFunc := context.WithCancel(ctx)
 	s := &service{
-		cancelFunc: cancelFunc,
+		metricsService: metricsService,
+		cancelFunc:     cancelFunc,
 	}
 	if err := s.init(cancellableCtx, sensors); err != nil {
 		return nil, err
@@ -75,19 +78,19 @@ func (s *service) init(ctx context.Context, sensorsConfig []*config.Sensor) erro
 		for _, o := range sensorConfig.Outputs {
 			var outputContainer outputGroup
 			if mqtt := o.Mqtt; mqtt != nil && mqtt.Enabled {
-				outputImpl, err := output.NewOutput(ctx, "mqtt", o)
+				outputImpl, err := output.NewOutput(ctx, "mqtt", o, s.metricsService)
 				if err != nil {
 					return fmt.Errorf("process: failed to initialize mqtt output: %w", err)
 				}
 				outputContainer.Output = outputImpl
 			} else if influxdb2 := o.InfluxDb2; influxdb2 != nil && influxdb2.Enabled {
-				outputImpl, err := output.NewOutput(ctx, "influxdb2", o)
+				outputImpl, err := output.NewOutput(ctx, "influxdb2", o, s.metricsService)
 				if err != nil {
 					return fmt.Errorf("process: failed to initialize influxdb2 output: %w", err)
 				}
 				outputContainer.Output = outputImpl
 			} else if prometheus := o.Prometheus; prometheus != nil && prometheus.Enabled {
-				outputImpl, err := output.NewOutput(ctx, "prometheus", o)
+				outputImpl, err := output.NewOutput(ctx, "prometheus", o, s.metricsService)
 				if err != nil {
 					return fmt.Errorf("process: failed to initialize prometheus output: %w", err)
 				}
