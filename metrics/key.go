@@ -1,7 +1,7 @@
 package metrics
 
 import (
-	"strings"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type Key struct {
@@ -11,15 +11,5 @@ type Key struct {
 }
 
 func (k Key) String() string {
-	var sb strings.Builder
-	sb.WriteString(k.Name)
-	if k.Namespace != "" {
-		sb.WriteString(".")
-		sb.WriteString(k.Namespace)
-	}
-	if k.Subsystem != "" {
-		sb.WriteString(".")
-		sb.WriteString(k.Subsystem)
-	}
-	return sb.String()
+	return prometheus.BuildFQName(k.Namespace, k.Subsystem, k.Name)
 }

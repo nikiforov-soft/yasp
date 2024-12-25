@@ -136,7 +136,11 @@ func (mi *mqttInput) messageHandler(publish *paho.Publish) {
 
 	eventsProcessedCounter.WithLabelValues(publish.Topic).Inc()
 
-	logrus.WithField("payload", string(publish.Payload)).Debug("input received")
+	logrus.
+		WithField("payload", string(publish.Payload)).
+		WithField("source", "mqtt").
+		Debug("input received")
+
 	for _, channel := range mi.activeChannels {
 		channel <- &input.Data{
 			Data: publish.Payload,

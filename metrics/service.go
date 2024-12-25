@@ -11,7 +11,6 @@ import (
 	"sync/atomic"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 
@@ -29,14 +28,14 @@ type Service interface {
 }
 
 type service struct {
-	tlsCertificateFile string
-	tlsPrivateKey      string
-	endpoint           string
-	listening          atomic.Bool
-	server             *http.Server
-	metricsMapping     []*config.MetricsMapping
-	metricByName       map[string]any
-	metricByNameLock   sync.Mutex
+	tlsCertificateFile    string
+	tlsPrivateKey         string
+	endpoint              string
+	listening             atomic.Bool
+	server                *http.Server
+	metricsMapping        []*config.MetricsMapping
+	collectorByMetric     map[string]*collector
+	collectorByMetricLock sync.Mutex
 }
 
 func NewService(config config.Metrics) Service {
@@ -52,7 +51,7 @@ func NewService(config config.Metrics) Service {
 		tlsPrivateKey:      config.TLS.PrivateKeyFile,
 		endpoint:           config.Endpoint,
 		server:             server,
-		metricByName:       make(map[string]any),
+		collectorByMetric:  make(map[string]*collector),
 		metricsMapping:     config.MetricsMapping,
 	}
 }
@@ -61,7 +60,7 @@ func (s *service) Observe(key Key, value float64, labels prometheus.Labels) erro
 	logrus.
 		WithField("key", key.String()).
 		WithField("value", value).
-		Info("observing metric value changes")
+		Debug("observing metric value changes")
 
 	var mapping *config.MetricsMapping
 	for _, m := range s.metricsMapping {
@@ -93,23 +92,12 @@ func (s *service) Observe(key Key, value float64, labels prometheus.Labels) erro
 		}
 	}
 
-	metric, err := s.computeMetricVec(mapping)
+	c, err := s.computeCollector(mapping)
 	if err != nil {
 		return err
 	}
 
-	switch m := metric.(type) {
-	case *prometheus.CounterVec:
-		m.With(labels).Add(value)
-	case *prometheus.GaugeVec:
-		m.With(labels).Set(value)
-	case *prometheus.SummaryVec:
-		m.With(labels).Observe(value)
-	case *prometheus.HistogramVec:
-		m.With(labels).Observe(value)
-	default:
-		return fmt.Errorf("metrics: unsupported type: %s for: %s", key, mapping.Type)
-	}
+	c.metrics.Store(key.String(), newMetric(mapping, value, labels))
 	return nil
 }
 
@@ -132,55 +120,20 @@ func (s *service) Shutdown(ctx context.Context) error {
 	return s.server.Shutdown(ctx)
 }
 
-func (s *service) computeMetricVec(mapping *config.MetricsMapping) (any, error) {
-	s.metricByNameLock.Lock()
-	defer s.metricByNameLock.Unlock()
+func (s *service) computeCollector(mapping *config.MetricsMapping) (*collector, error) {
+	s.collectorByMetricLock.Lock()
+	defer s.collectorByMetricLock.Unlock()
 
-	metric, exists := s.metricByName[mapping.Name]
+	c, exists := s.collectorByMetric[mapping.Name]
 	if !exists {
-		switch strings.ToLower(mapping.Type) {
-		case "counter":
-			metric = promauto.NewCounterVec(prometheus.CounterOpts{
-				Namespace: mapping.Namespace,
-				Subsystem: mapping.Subsystem,
-				Name:      mapping.Name,
-				Help:      mapping.Description,
-			}, mapping.Labels)
-		case "gauge":
-			metric = promauto.NewGaugeVec(prometheus.GaugeOpts{
-				Namespace: mapping.Namespace,
-				Subsystem: mapping.Subsystem,
-				Name:      mapping.Name,
-				Help:      mapping.Description,
-			}, mapping.Labels)
-		case "summary":
-			metric = promauto.NewSummaryVec(prometheus.SummaryOpts{
-				Namespace:  mapping.Namespace,
-				Subsystem:  mapping.Subsystem,
-				Name:       mapping.Name,
-				Help:       mapping.Description,
-				Objectives: mapping.Objectives,
-				MaxAge:     mapping.MaxAge,
-				AgeBuckets: mapping.AgeBuckets,
-				BufCap:     mapping.BufCap,
-			}, mapping.Labels)
-		case "histogram":
-			metric = promauto.NewHistogramVec(prometheus.HistogramOpts{
-				Namespace:                       mapping.Namespace,
-				Subsystem:                       mapping.Subsystem,
-				Name:                            mapping.Name,
-				Help:                            mapping.Description,
-				Buckets:                         mapping.Buckets,
-				NativeHistogramBucketFactor:     mapping.NativeHistogramBucketFactor,
-				NativeHistogramZeroThreshold:    mapping.NativeHistogramZeroThreshold,
-				NativeHistogramMaxBucketNumber:  mapping.NativeHistogramMaxBucketNumber,
-				NativeHistogramMinResetDuration: mapping.NativeHistogramMinResetDuration,
-				NativeHistogramMaxZeroThreshold: mapping.NativeHistogramMaxZeroThreshold,
-			}, mapping.Labels)
-		default:
-			return nil, fmt.Errorf("prometheus: unsupported type: %s", mapping.Type)
+		c = &collector{
+			mapping: mapping,
+			metrics: &sync.Map{},
 		}
-		s.metricByName[mapping.Name] = metric
+		if err := prometheus.Register(c); err != nil {
+			return nil, fmt.Errorf("failed to register metrics collector: %w", err)
+		}
+		s.collectorByMetric[mapping.Name] = c
 	}
-	return metric, nil
+	return c, nil
 }

@@ -102,6 +102,7 @@ func (mi *memphisInput) messageHandler(messages []*memphis.Msg, err error, ctx c
 		logrus.
 			WithField("headers", message.GetHeaders()).
 			WithField("payload", string(message.Data())).
+			WithField("source", "memphis").
 			Debug("input received")
 
 		data := &input.Data{
@@ -120,7 +121,7 @@ func (mi *memphisInput) messageHandler(messages []*memphis.Msg, err error, ctx c
 		if mi.config.HeaderPrefixes != nil {
 			var exists bool
 			for k, v := range message.GetHeaders() {
-				if requiredPrefix, exists := mi.config.HeaderPrefixes[k]; exists {
+				if requiredPrefix, hasPrefix := mi.config.HeaderPrefixes[k]; hasPrefix {
 					matches, err := filepath.Match(requiredPrefix, v)
 					if err != nil {
 						return
