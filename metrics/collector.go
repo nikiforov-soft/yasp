@@ -2,81 +2,90 @@ package metrics
 
 import (
 	"strings"
-	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
 	"github.com/nikiforov-soft/yasp/config"
+	"github.com/nikiforov-soft/yasp/internal/syncx"
 )
 
 type collector struct {
-	mapping *config.MetricsMapping
-	metrics *sync.Map
+	metricsMapping *config.MetricsMapping
+	metrics        *syncx.Map[string, *metric]
 }
 
-func (cc *collector) Describe(ch chan<- *prometheus.Desc) {
+func (c *collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- prometheus.NewDesc(
-		prometheus.BuildFQName(cc.mapping.Namespace, cc.mapping.Subsystem, cc.mapping.Name),
-		cc.mapping.Description,
-		cc.mapping.Labels,
+		prometheus.BuildFQName(c.metricsMapping.Namespace, c.metricsMapping.Subsystem, c.metricsMapping.Name),
+		c.metricsMapping.Description,
+		c.metricsMapping.Labels,
 		nil,
 	)
 }
 
-func (cc *collector) Collect(ch chan<- prometheus.Metric) {
-	cc.metrics.Range(func(_, value any) bool {
-		m := value.(*metric)
-		desc := prometheus.NewDesc(
-			prometheus.BuildFQName(cc.mapping.Namespace, cc.mapping.Subsystem, cc.mapping.Name),
-			cc.mapping.Description,
-			nil,
-			nil,
-		)
-
-		labels := flattenLabels(cc.mapping.Labels, m.labels)
-		switch strings.ToLower(cc.mapping.Type) {
-		case "counter":
-			ch <- prometheus.MustNewConstMetricWithCreatedTimestamp(
-				desc,
-				prometheus.CounterValue,
-				m.value,
-				m.timestamp,
-				labels...,
-			)
-		case "gauge":
-			ch <- prometheus.NewMetricWithTimestamp(m.timestamp, prometheus.MustNewConstMetric(
-				desc,
-				prometheus.GaugeValue,
-				m.value,
-				labels...,
-			))
-		case "histogram":
-			buckets := make(map[float64]uint64)
-			for bucket, count := range m.histogramBuckets {
-				buckets[bucket] = uint64(count)
-			}
-
-			ch <- prometheus.MustNewConstHistogramWithCreatedTimestamp(
-				desc,
-				m.histogramCount,
-				m.histogramSum,
-				buckets,
-				m.timestamp,
-				labels...,
-			)
-		case "summary":
-			ch <- prometheus.MustNewConstSummaryWithCreatedTimestamp(
-				desc,
-				m.summaryCount,
-				m.summarySum,
-				m.summaryQuantiles,
-				m.timestamp,
-				labels...,
-			)
-		default:
-			logrus.WithField("type", cc.mapping.Type).Warn("unknown metric type")
+func (c *collector) Collect(ch chan<- prometheus.Metric) {
+	c.metrics.Range(func(_ string, m *metric) bool {
+		desc := c.buildDesc()
+		labels := flattenLabels(c.metricsMapping.Labels, m.labels)
+		if metricValue, ok := c.collectMetrics(desc, m, labels); ok {
+			ch <- metricValue
 		}
 		return true
 	})
+}
+
+func (c *collector) buildDesc() *prometheus.Desc {
+	return prometheus.NewDesc(
+		prometheus.BuildFQName(c.metricsMapping.Namespace, c.metricsMapping.Subsystem, c.metricsMapping.Name),
+		c.metricsMapping.Description,
+		nil,
+		nil,
+	)
+}
+
+func (c *collector) collectMetrics(desc *prometheus.Desc, m *metric, labels []string) (prometheus.Metric, bool) {
+	switch strings.ToLower(c.metricsMapping.Type) {
+	case "counter":
+		return prometheus.MustNewConstMetricWithCreatedTimestamp(
+			desc,
+			prometheus.CounterValue,
+			m.value,
+			m.timestamp,
+			labels...,
+		), true
+	case "gauge":
+		return prometheus.NewMetricWithTimestamp(m.timestamp, prometheus.MustNewConstMetric(
+			desc,
+			prometheus.GaugeValue,
+			m.value,
+			labels...,
+		)), true
+	case "histogram":
+		buckets := make(map[float64]uint64)
+		for bucket, count := range m.histogramBuckets {
+			buckets[bucket] = uint64(count)
+		}
+
+		return prometheus.MustNewConstHistogramWithCreatedTimestamp(
+			desc,
+			m.histogramCount,
+			m.histogramSum,
+			buckets,
+			m.timestamp,
+			labels...,
+		), true
+	case "summary":
+		return prometheus.MustNewConstSummaryWithCreatedTimestamp(
+			desc,
+			m.summaryCount,
+			m.summarySum,
+			m.summaryQuantiles,
+			m.timestamp,
+			labels...,
+		), true
+	default:
+		logrus.WithField("type", c.metricsMapping.Type).Warn("unknown metric type")
+		return nil, false
+	}
 }

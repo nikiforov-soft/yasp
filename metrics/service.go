@@ -15,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/nikiforov-soft/yasp/config"
+	"github.com/nikiforov-soft/yasp/internal/syncx"
 )
 
 var (
@@ -127,8 +128,8 @@ func (s *service) computeCollector(mapping *config.MetricsMapping) (*collector, 
 	c, exists := s.collectorByMetric[mapping.Name]
 	if !exists {
 		c = &collector{
-			mapping: mapping,
-			metrics: &sync.Map{},
+			metricsMapping: mapping,
+			metrics:        &syncx.Map[string, *metric]{},
 		}
 		if err := prometheus.Register(c); err != nil {
 			return nil, fmt.Errorf("failed to register metrics collector: %w", err)
