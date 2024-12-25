@@ -3,7 +3,6 @@ package mqtt
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/eclipse/paho.golang/autopaho"
 	"github.com/eclipse/paho.golang/paho"
@@ -37,15 +36,10 @@ func NewMqttOutput(ctx context.Context, config *config.MqttOutput) (output.Outpu
 		keepAlive = 5
 	}
 
-	connectRetryDelay := config.ConnectRetryDelay
-	if connectRetryDelay == 0 {
-		connectRetryDelay = 5 * time.Second
-	}
-
 	clientConfig := autopaho.ClientConfig{
 		BrokerUrls:       config.GetBrokerUrls(),
 		KeepAlive:        keepAlive,
-		ReconnectBackoff: autopaho.NewConstantBackoff(connectRetryDelay),
+		ReconnectBackoff: autopaho.DefaultExponentialBackoff(),
 		OnConnectionUp:   func(*autopaho.ConnectionManager, *paho.Connack) { logrus.Info("mqtt output: connected to server") },
 		OnConnectError:   func(err error) { logrus.WithError(err).Error("mqtt output: failed to connect to  server") },
 		ClientConfig: paho.ClientConfig{

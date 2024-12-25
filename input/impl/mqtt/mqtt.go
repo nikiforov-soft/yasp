@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/eclipse/paho.golang/autopaho"
 	"github.com/eclipse/paho.golang/paho"
@@ -46,14 +45,10 @@ func (mi *mqttInput) Subscribe(ctx context.Context) (<-chan *input.Data, error) 
 		keepAlive = 5
 	}
 
-	connectRetryDelay := mi.config.ConnectRetryDelay
-	if connectRetryDelay == 0 {
-		connectRetryDelay = 5 * time.Second
-	}
 	clientConfig := autopaho.ClientConfig{
 		BrokerUrls:       mi.config.GetBrokerUrls(),
 		KeepAlive:        keepAlive,
-		ReconnectBackoff: autopaho.NewConstantBackoff(connectRetryDelay),
+		ReconnectBackoff: autopaho.DefaultExponentialBackoff(),
 		OnConnectionUp: func(cm *autopaho.ConnectionManager, connAck *paho.Connack) {
 			logrus.Info("mqtt input: connected to mqtt server")
 
@@ -61,7 +56,7 @@ func (mi *mqttInput) Subscribe(ctx context.Context) (<-chan *input.Data, error) 
 			for _, topic := range mi.config.Topics {
 				subscriptions = append(subscriptions, paho.SubscribeOptions{
 					Topic: topic,
-					QoS:   0,
+					QoS:   mi.config.QoS,
 				})
 			}
 

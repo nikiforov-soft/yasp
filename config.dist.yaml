@@ -92,7 +92,7 @@ sensors:
         password: ""
         clientId: LYWSD03MMC_Subscriber
         keepAlive: 5
-        connectRetryDelay: 5s
+        qos: 0
       memphis:
         enabled: false
         hostname: 127.0.0.1:6666
@@ -114,7 +114,6 @@ sensors:
           password: ""
           clientId: LYWSD03MMC_Publisher
           keepAlive: 5
-          connectRetryDelay: 5s
           qos: 0
           retain: false
       - influxdb2:
@@ -192,7 +191,7 @@ sensors:
           - tcp://localhost:1883
         clientId: P1P2_Subscriber
         keepAlive: 5
-        connectRetryDelay: 5s
+        qos: 0
     outputs:
       - prometheus:
           enabled: true
