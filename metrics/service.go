@@ -89,9 +89,12 @@ func (s *service) prune() {
 
 	for k, c := range s.collectorByMetric {
 		var metricsToRemove []string
+		var metricsRemaining = 0
 		c.metrics.Range(func(key string, value *metric) bool {
 			if time.Since(value.timestamp) > s.stalenessInterval {
 				metricsToRemove = append(metricsToRemove, key)
+			} else {
+				metricsRemaining++
 			}
 			return true
 		})
@@ -104,13 +107,7 @@ func (s *service) prune() {
 				Debug("stale metric removed")
 		}
 
-		var metricsLen = 0
-		c.metrics.Range(func(key string, value *metric) bool {
-			metricsLen++
-			return true
-		})
-
-		if metricsLen == 0 {
+		if metricsRemaining == 0 {
 			delete(s.collectorByMetric, k)
 			prometheus.Unregister(c)
 		}

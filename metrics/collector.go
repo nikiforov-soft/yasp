@@ -17,12 +17,7 @@ type collector struct {
 }
 
 func (c *collector) Describe(ch chan<- *prometheus.Desc) {
-	ch <- prometheus.NewDesc(
-		prometheus.BuildFQName(c.metricsMapping.Namespace, c.metricsMapping.Subsystem, c.metricsMapping.Name),
-		c.metricsMapping.Description,
-		c.metricsMapping.Labels,
-		nil,
-	)
+	ch <- c.buildDesc()
 }
 
 func (c *collector) Collect(ch chan<- prometheus.Metric) {
@@ -43,7 +38,7 @@ func (c *collector) buildDesc() *prometheus.Desc {
 	return prometheus.NewDesc(
 		prometheus.BuildFQName(c.metricsMapping.Namespace, c.metricsMapping.Subsystem, c.metricsMapping.Name),
 		c.metricsMapping.Description,
-		nil,
+		c.metricsMapping.Labels,
 		nil,
 	)
 }
