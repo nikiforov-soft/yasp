@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -16,7 +15,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/nikiforov-soft/yasp/config"
-	"github.com/nikiforov-soft/yasp/internal/syncx"
 )
 
 var (
@@ -30,8 +28,6 @@ type Service interface {
 }
 
 type service struct {
-	closeCtx              context.Context
-	closeFn               context.CancelFunc
 	tlsCertificateFile    string
 	tlsPrivateKey         string
 	endpoint              string
@@ -44,7 +40,6 @@ type service struct {
 }
 
 func NewService(config config.Metrics) Service {
-	closeCtx, closeFn := context.WithCancel(context.Background())
 	mux := http.NewServeMux()
 	server := &http.Server{
 		Addr:    config.ListenAddr,
@@ -52,9 +47,7 @@ func NewService(config config.Metrics) Service {
 	}
 	mux.Handle(config.Endpoint, promhttp.Handler())
 
-	s := &service{
-		closeCtx:           closeCtx,
-		closeFn:            closeFn,
+	return &service{
 		tlsCertificateFile: config.TLS.CertificateFile,
 		tlsPrivateKey:      config.TLS.PrivateKeyFile,
 		endpoint:           config.Endpoint,
@@ -62,60 +55,6 @@ func NewService(config config.Metrics) Service {
 		server:             server,
 		metricsMapping:     config.MetricsMapping,
 		collectorByMetric:  make(map[string]*collector),
-	}
-
-	if config.StalenessInterval != 0 {
-		go s.startTicker()
-	}
-
-	return s
-}
-
-func (s *service) startTicker() {
-	ticker := time.NewTicker(time.Second)
-	for {
-		select {
-		case <-s.closeCtx.Done():
-			return
-		case <-ticker.C:
-			s.prune()
-		}
-	}
-}
-
-func (s *service) prune() {
-	s.collectorByMetricLock.Lock()
-	defer s.collectorByMetricLock.Unlock()
-
-	for k, c := range s.collectorByMetric {
-		var metricsToRemove []string
-		var metricsRemaining = 0
-		c.metrics.Range(func(key string, value *metric) bool {
-			if time.Since(value.timestamp) > s.stalenessInterval {
-				metricsToRemove = append(metricsToRemove, key)
-			} else {
-				metricsRemaining++
-			}
-			return true
-		})
-
-		for _, key := range metricsToRemove {
-			m, ok := c.metrics.LoadAndDelete(key)
-			if ok {
-				logrus.
-					WithField("name", c.metricsMapping.Name).
-					WithField("labels", m.labels).
-					WithField("value", m.value).
-					WithField("updatedAt", m.timestamp).
-					Debug("stale metric removed")
-
-			}
-		}
-
-		if metricsRemaining == 0 {
-			delete(s.collectorByMetric, k)
-			prometheus.Unregister(c)
-		}
 	}
 }
 
@@ -139,30 +78,16 @@ func (s *service) Observe(key Key, value float64, labels prometheus.Labels) erro
 		return nil
 	}
 
-	if len(labels) != len(mapping.Labels) {
-		return fmt.Errorf("metrics: mismatched label name/value count for %s expected %d got %d", key, len(mapping.Labels), len(labels))
-	}
-
-	for _, k := range mapping.Labels {
-		if _, exists := labels[k]; !exists {
-			return fmt.Errorf("metrics: missing required label %s for: %s", k, key)
-		}
-	}
-
-	for k := range labels {
-		if !slices.Contains(mapping.Labels, k) {
-			return fmt.Errorf("metrics: provided unknown label %s for: %s", k, key)
-		}
+	if err := validateLabels(key, mapping, labels); err != nil {
+		return fmt.Errorf("metrics: failed to validate labels: %w", err)
 	}
 
 	c, err := s.computeCollector(mapping)
 	if err != nil {
-		return err
+		return fmt.Errorf("metrics: failed to get collector: %w", err)
 	}
 
-	m := newMetric(mapping, value, labels)
-	c.metrics.Store(computeHash(key, c.metricsMapping, m.labels), m)
-	return nil
+	return c.Observe(value, labels)
 }
 
 func (s *service) ListenAndServe() error {
@@ -181,7 +106,14 @@ func (s *service) Shutdown(ctx context.Context) error {
 	if !s.listening.Load() {
 		return nil
 	}
-	s.closeFn()
+
+	s.collectorByMetricLock.Lock()
+	defer s.collectorByMetricLock.Unlock()
+	for _, c := range s.collectorByMetric {
+		c.Close()
+	}
+	clear(s.collectorByMetric)
+
 	return s.server.Shutdown(ctx)
 }
 
@@ -191,12 +123,10 @@ func (s *service) computeCollector(mapping *config.MetricsMapping) (*collector, 
 
 	c, exists := s.collectorByMetric[mapping.Name]
 	if !exists {
-		c = &collector{
-			metricsMapping: mapping,
-			metrics:        &syncx.Map[string, *metric]{},
-		}
-		if err := prometheus.Register(c); err != nil {
-			return nil, fmt.Errorf("failed to register metrics collector: %w", err)
+		var err error
+		c, err = newCollector(mapping, s.stalenessInterval)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create collector: %w", err)
 		}
 		s.collectorByMetric[mapping.Name] = c
 	}
