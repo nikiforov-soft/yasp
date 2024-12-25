@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
 
 	"github.com/nikiforov-soft/yasp/config"
 	"github.com/nikiforov-soft/yasp/internal/syncx"
@@ -22,11 +21,9 @@ func (c *collector) Describe(ch chan<- *prometheus.Desc) {
 
 func (c *collector) Collect(ch chan<- prometheus.Metric) {
 	c.metrics.Range(func(_ string, m *metric) bool {
-		desc := c.buildDesc()
-		labels := flattenLabels(c.metricsMapping.Labels, m.labels)
-		metricValue, err := c.collectMetrics(desc, m, labels)
+		metricValue, err := c.collectMetrics(m)
 		if err != nil {
-			logrus.WithError(err).Error("failed to collect metrics")
+			ch <- prometheus.NewInvalidMetric(c.buildDesc(), err)
 		} else {
 			ch <- prometheus.NewMetricWithTimestamp(m.timestamp, metricValue)
 		}
@@ -43,7 +40,10 @@ func (c *collector) buildDesc() *prometheus.Desc {
 	)
 }
 
-func (c *collector) collectMetrics(desc *prometheus.Desc, m *metric, labels []string) (prometheus.Metric, error) {
+func (c *collector) collectMetrics(m *metric) (prometheus.Metric, error) {
+	desc := c.buildDesc()
+	labels := flattenLabels(c.metricsMapping.Labels, m.labels)
+
 	switch strings.ToLower(c.metricsMapping.Type) {
 	case "counter":
 		return prometheus.NewConstMetric(

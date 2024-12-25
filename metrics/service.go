@@ -100,11 +100,16 @@ func (s *service) prune() {
 		})
 
 		for _, key := range metricsToRemove {
-			c.metrics.Delete(key)
+			m, ok := c.metrics.LoadAndDelete(key)
+			if ok {
+				logrus.
+					WithField("name", c.metricsMapping.Name).
+					WithField("labels", m.labels).
+					WithField("value", m.value).
+					WithField("updatedAt", m.timestamp).
+					Debug("stale metric removed")
 
-			logrus.
-				WithField("key", key).
-				Debug("stale metric removed")
+			}
 		}
 
 		if metricsRemaining == 0 {
@@ -156,8 +161,7 @@ func (s *service) Observe(key Key, value float64, labels prometheus.Labels) erro
 	}
 
 	m := newMetric(mapping, value, labels)
-	metricStoreKey := key.String() + "_" + strings.Join(flattenLabels(c.metricsMapping.Labels, m.labels), "-")
-	c.metrics.Store(metricStoreKey, m)
+	c.metrics.Store(computeHash(key, c.metricsMapping, m.labels), m)
 	return nil
 }
 
