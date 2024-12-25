@@ -155,7 +155,9 @@ func (s *service) Observe(key Key, value float64, labels prometheus.Labels) erro
 		return err
 	}
 
-	c.metrics.Store(key.String(), newMetric(mapping, value, labels))
+	m := newMetric(mapping, value, labels)
+	metricStoreKey := key.String() + "_" + strings.Join(flattenLabels(c.metricsMapping.Labels, m.labels), "-")
+	c.metrics.Store(metricStoreKey, m)
 	return nil
 }
 
