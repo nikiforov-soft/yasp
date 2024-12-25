@@ -14,24 +14,27 @@ metrics:
     - name: "temperature_celsius"
       description: "sensor value."
       namespace: "yasp"
-      subsystem: "LYWSD03MMC"
+      subsystem: "lywsd03mmc"
       type: Gauge
       labels:
         - device
+        - deviceType
     - name: "humidity_percent"
       description: "sensor value."
       namespace: "yasp"
-      subsystem: "LYWSD03MMC"
+      subsystem: "lywsd03mmc"
       type: Gauge
       labels:
         - device
+        - deviceType
     - name: "battery_percent"
       description: "sensor value."
       namespace: "yasp"
-      subsystem: "LYWSD03MMC"
+      subsystem: "lywsd03mmc"
       type: Gauge
       labels:
         - device
+        - deviceType
     # P1P2 mappings
     - name: "temperature"
       description: "p1p2 target temperature."
@@ -146,34 +149,34 @@ sensors:
                 {{- end -}}
               namespace: "yasp"
               subsystem: "{{- index .Properties \"deviceType\" | ToLower -}}" # Templating supported
+              value: "{{ index .Properties \"value\" | ToNumber }}" # Templating supported
               labels:
                 device: "{{- index .Properties \"deviceName\" -}}" # Templating supported on both keys and values
                 deviceType: "{{- index .Properties \"deviceType\" -}}"
-              value: "{{ index .Properties \"value\" | ToNumber }}" # Templating supported
     # Individual mapping per unit example
     #            - name: Temperature
     #              namespace: ""
     #              subsystem: ""
+    #              value: "{{ index .Properties \"value\" | ToNumber }}"
     #              labels:
     #                device: "{{ index .Properties \"deviceName\" }}"
     #                deviceType: "{{ index .Properties \"deviceType\" }}"
-    #              value: "{{ index .Properties \"value\" | ToNumber }}"
     #              condition: "{{ eq (index .Properties \"unit\") \"Temperature\" }}"
     #            - name: Humidity
     #              namespace: ""
     #              subsystem: ""
+    #              value: "{{ index .Properties \"value\" | ToNumber }}"
     #              labels:
     #                device: "{{ index .Properties \"deviceName\" }}"
     #                deviceType: "{{ index .Properties \"deviceType\" }}"
-    #              value: "{{ index .Properties \"value\" | ToNumber }}"
     #              condition: "{{ eq (index .Properties \"unit\") \"Humidity\" }}"
     #            - name: Battery
     #              namespace: ""
     #              subsystem: ""
+    #              value: "{{ index .Properties \"value\" | ToNumber }}"
     #              labels:
     #                device: "{{ index .Properties \"deviceName\" }}"
     #                deviceType: "{{ index .Properties \"deviceType\" }}"
-    #              value: "{{ index .Properties \"value\" | ToNumber }}"
     #              condition: "{{- if eq (index .Properties \"unit\") \"Battery\" -}}true{{- else - }}false{{- end -}}"
     devices:
       - name: Your Sensor
