@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -28,8 +29,11 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 	c.metrics.Range(func(_ string, m *metric) bool {
 		desc := c.buildDesc()
 		labels := flattenLabels(c.metricsMapping.Labels, m.labels)
-		if metricValue, ok := c.collectMetrics(desc, m, labels); ok {
-			ch <- metricValue
+		metricValue, err := c.collectMetrics(desc, m, labels)
+		if err != nil {
+			logrus.WithError(err).Error("failed to collect metrics")
+		} else {
+			ch <- prometheus.NewMetricWithTimestamp(m.timestamp, metricValue)
 		}
 		return true
 	})
@@ -44,48 +48,43 @@ func (c *collector) buildDesc() *prometheus.Desc {
 	)
 }
 
-func (c *collector) collectMetrics(desc *prometheus.Desc, m *metric, labels []string) (prometheus.Metric, bool) {
+func (c *collector) collectMetrics(desc *prometheus.Desc, m *metric, labels []string) (prometheus.Metric, error) {
 	switch strings.ToLower(c.metricsMapping.Type) {
 	case "counter":
-		return prometheus.MustNewConstMetricWithCreatedTimestamp(
+		return prometheus.NewConstMetric(
 			desc,
 			prometheus.CounterValue,
 			m.value,
-			m.timestamp,
 			labels...,
-		), true
+		)
 	case "gauge":
-		return prometheus.NewMetricWithTimestamp(m.timestamp, prometheus.MustNewConstMetric(
+		return prometheus.NewConstMetric(
 			desc,
 			prometheus.GaugeValue,
 			m.value,
 			labels...,
-		)), true
+		)
 	case "histogram":
 		buckets := make(map[float64]uint64)
 		for bucket, count := range m.histogramBuckets {
 			buckets[bucket] = uint64(count)
 		}
-
-		return prometheus.MustNewConstHistogramWithCreatedTimestamp(
+		return prometheus.NewConstHistogram(
 			desc,
 			m.histogramCount,
 			m.histogramSum,
 			buckets,
-			m.timestamp,
 			labels...,
-		), true
+		)
 	case "summary":
-		return prometheus.MustNewConstSummaryWithCreatedTimestamp(
+		return prometheus.NewConstSummary(
 			desc,
 			m.summaryCount,
 			m.summarySum,
 			m.summaryQuantiles,
-			m.timestamp,
 			labels...,
-		), true
+		)
 	default:
-		logrus.WithField("type", c.metricsMapping.Type).Warn("unknown metric type")
-		return nil, false
+		return nil, fmt.Errorf("unsupported metric type: %s", c.metricsMapping.Type)
 	}
 }

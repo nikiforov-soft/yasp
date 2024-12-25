@@ -8,6 +8,7 @@ metrics:
   tls:
     certificateFile: ""
     privateKeyFile: ""
+  stalenessInterval: 5m # Deletes metrics if we have not received any updates for them within the given interval
   metricsMapping:
     # LYWSD03MMC mappings
     - name: "temperature_celsius"
