@@ -4,4 +4,5 @@ import (
 	_ "github.com/nikiforov-soft/yasp/device/impl/lywsd03mmc"
 	_ "github.com/nikiforov-soft/yasp/device/impl/p1p2"
 	_ "github.com/nikiforov-soft/yasp/device/impl/passthrough"
+	_ "github.com/nikiforov-soft/yasp/device/impl/shelly"
 )
