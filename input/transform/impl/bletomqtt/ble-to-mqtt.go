@@ -36,7 +36,10 @@ func (btm *bleToMqtt) Transform(_ context.Context, data *input.Data) (*input.Dat
 		return nil, fmt.Errorf("ble-to-mqtt transform: failed to json decode input event data: %w", err)
 	}
 
-	logrus.WithField("payload", inputEventData).Debug("input transformed")
+	logrus.
+		WithField("payload", inputEventData).
+		Debug("input transformed")
+
 	if serviceData, exists := inputEventData.ServiceData[btm.sdk]; exists {
 		payload, err := hex.DecodeString(serviceData)
 		if err != nil {

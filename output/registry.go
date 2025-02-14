@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/nikiforov-soft/yasp/config"
+	"github.com/nikiforov-soft/yasp/metrics"
 )
 
 var ErrOutputNotFound = errors.New("output not found")
@@ -17,7 +18,7 @@ var (
 	outputsLock sync.RWMutex
 )
 
-func NewOutput(ctx context.Context, outputName string, config *config.Output) (Output, error) {
+func NewOutput(ctx context.Context, outputName string, config *config.Output, metricsService metrics.Service) (Output, error) {
 	outputsLock.RLock()
 	defer outputsLock.RUnlock()
 
@@ -25,7 +26,7 @@ func NewOutput(ctx context.Context, outputName string, config *config.Output) (O
 	if outputFactory == nil {
 		return nil, fmt.Errorf("%w: %s", ErrOutputNotFound, outputName)
 	}
-	return outputFactory(ctx, config)
+	return outputFactory(ctx, config, metricsService)
 }
 
 func RegisterOutput(outputName string, outputFactory Factory) error {

@@ -4,26 +4,25 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/sirupsen/logrus"
 
 	"github.com/nikiforov-soft/yasp/config"
+	"github.com/nikiforov-soft/yasp/metrics"
 	"github.com/nikiforov-soft/yasp/output"
 	"github.com/nikiforov-soft/yasp/template"
 )
 
 type promeheus struct {
-	config       *config.Prometheus
-	metricByName map[string]any
+	config         *config.Prometheus
+	metricsService metrics.Service
 }
 
-func newPrometheus(_ context.Context, config *config.Prometheus) (*promeheus, error) {
+func newPrometheus(_ context.Context, config *config.Prometheus, metricsService metrics.Service) (*promeheus, error) {
 	return &promeheus{
-		config:       config,
-		metricByName: make(map[string]any),
+		config:         config,
+		metricsService: metricsService,
 	}, nil
 }
 
@@ -70,18 +69,7 @@ func (p *promeheus) Publish(_ context.Context, data *output.Data) error {
 			return fmt.Errorf("prometheus: failed to process name template: %w", err)
 		}
 
-		description, err := template.Execute("mapping.description", mapping.Description, data)
-		if err != nil {
-			return fmt.Errorf("prometheus: failed to process description template: %w", err)
-		}
-
-		mappingType, err := template.Execute("mapping.type", mapping.Type, data)
-		if err != nil {
-			return fmt.Errorf("prometheus: failed to process type template: %w", err)
-		}
-
-		labelKeys := make([]string, 0, len(mapping.Labels))
-		labels := make(prometheus.Labels)
+		labels := make(prometheus.Labels, len(mapping.Labels))
 		for k, v := range mapping.Labels {
 			labelKey, err := template.Execute("mapping.label.key", k, data)
 			if err != nil {
@@ -93,55 +81,7 @@ func (p *promeheus) Publish(_ context.Context, data *output.Data) error {
 				return fmt.Errorf("prometheus: failed to process label value template: %w", err)
 			}
 
-			labelKeys = append(labelKeys, string(labelKey))
 			labels[string(labelKey)] = string(labelValue)
-		}
-
-		metric, exists := p.metricByName[string(name)]
-		if !exists {
-			switch strings.ToLower(string(mappingType)) {
-			case "counter":
-				metric = promauto.NewCounterVec(prometheus.CounterOpts{
-					Namespace: string(namespace),
-					Subsystem: string(subsystem),
-					Name:      string(name),
-					Help:      string(description),
-				}, labelKeys)
-			case "gauge":
-				metric = promauto.NewGaugeVec(prometheus.GaugeOpts{
-					Namespace: string(namespace),
-					Subsystem: string(subsystem),
-					Name:      string(name),
-					Help:      string(description),
-				}, labelKeys)
-			case "summary":
-				metric = promauto.NewSummaryVec(prometheus.SummaryOpts{
-					Namespace:  string(namespace),
-					Subsystem:  string(subsystem),
-					Name:       string(name),
-					Help:       string(description),
-					Objectives: mapping.Objectives,
-					MaxAge:     mapping.MaxAge,
-					AgeBuckets: mapping.AgeBuckets,
-					BufCap:     mapping.BufCap,
-				}, labelKeys)
-			case "histogram":
-				metric = promauto.NewHistogramVec(prometheus.HistogramOpts{
-					Namespace:                       string(namespace),
-					Subsystem:                       string(subsystem),
-					Name:                            string(name),
-					Help:                            string(description),
-					Buckets:                         mapping.Buckets,
-					NativeHistogramBucketFactor:     mapping.NativeHistogramBucketFactor,
-					NativeHistogramZeroThreshold:    mapping.NativeHistogramZeroThreshold,
-					NativeHistogramMaxBucketNumber:  mapping.NativeHistogramMaxBucketNumber,
-					NativeHistogramMinResetDuration: mapping.NativeHistogramMinResetDuration,
-					NativeHistogramMaxZeroThreshold: mapping.NativeHistogramMaxZeroThreshold,
-				}, labelKeys)
-			default:
-				return fmt.Errorf("prometheus: unsupported type: %s", string(mappingType))
-			}
-			p.metricByName[string(name)] = metric
 		}
 
 		floatValue, err := template.AsNumber(value)
@@ -149,18 +89,16 @@ func (p *promeheus) Publish(_ context.Context, data *output.Data) error {
 			return fmt.Errorf("prometheus: failed to parse value as float64: %s - %w", string(value), err)
 		}
 
-		switch m := metric.(type) {
-		case *prometheus.CounterVec:
-			m.With(labels).Add(floatValue)
-		case *prometheus.GaugeVec:
-			m.With(labels).Set(floatValue)
-		case *prometheus.SummaryVec:
-			m.With(labels).Observe(floatValue)
-		case *prometheus.HistogramVec:
-			m.With(labels).Observe(floatValue)
-		default:
-			return fmt.Errorf("prometheus: unsupported type: %s", string(mappingType))
+		key := metrics.Key{
+			Name:      string(name),
+			Namespace: string(namespace),
+			Subsystem: string(subsystem),
 		}
+
+		if err := p.metricsService.Observe(key, floatValue, labels); err != nil {
+			return fmt.Errorf("prometheus: failed to process metric: %s - %w", key, err)
+		}
+
 	}
 	return nil
 }
@@ -170,8 +108,8 @@ func (p *promeheus) Close(_ context.Context) error {
 }
 
 func init() {
-	err := output.RegisterOutput("prometheus", func(ctx context.Context, config *config.Output) (output.Output, error) {
-		return newPrometheus(ctx, config.Prometheus)
+	err := output.RegisterOutput("prometheus", func(ctx context.Context, config *config.Output, metricsService metrics.Service) (output.Output, error) {
+		return newPrometheus(ctx, config.Prometheus, metricsService)
 	})
 	if err != nil {
 		panic(err)

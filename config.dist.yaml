@@ -8,6 +8,76 @@ metrics:
   tls:
     certificateFile: ""
     privateKeyFile: ""
+  stalenessInterval: 5m # Deletes metrics if we have not received any updates for them within the given interval
+  metricsMapping:
+    # LYWSD03MMC mappings
+    - name: "temperature_celsius"
+      description: "sensor value."
+      namespace: "yasp"
+      subsystem: "lywsd03mmc"
+      type: Gauge
+      labels:
+        - device
+        - deviceType
+    - name: "humidity_percent"
+      description: "sensor value."
+      namespace: "yasp"
+      subsystem: "lywsd03mmc"
+      type: Gauge
+      labels:
+        - device
+        - deviceType
+    - name: "battery_percent"
+      description: "sensor value."
+      namespace: "yasp"
+      subsystem: "lywsd03mmc"
+      type: Gauge
+      labels:
+        - device
+        - deviceType
+    # P1P2 mappings
+    - name: "temperature"
+      description: "p1p2 target temperature."
+      namespace: "yasp"
+      subsystem: "p1p2"
+      type: Gauge
+      labels:
+        - device
+    - name: "status"
+      description: "p1p2 operation status."
+      namespace: "yasp"
+      subsystem: "p1p2"
+      type: Gauge
+      labels:
+        - device
+    - name: "test_mode"
+      description: "p1p2 test mode status."
+      namespace: "yasp"
+      subsystem: "p1p2"
+      type: Gauge
+      labels:
+        - device
+    - name: "error_code"
+      description: "p1p2 error code."
+      namespace: "yasp"
+      subsystem: "p1p2"
+      type: Gauge
+      labels:
+        - device
+    - name: "mode"
+      description: "p1p2 mode, 1 = cooling, 2 = heating."
+      type: Gauge
+      namespace: "yasp"
+      subsystem: "p1p2"
+      labels:
+        - device
+    - name: "fan_speed"
+      description: "p1p2 fan speed, 1 = low, 2 = medium, 3 = high."
+      namespace: "yasp"
+      subsystem: "p1p2"
+      type: Gauge
+      labels:
+        - device
 sensors:
   - name: Xiaomi Mi Temperature and Humidity Monitor 2
     enabled: false
@@ -26,7 +96,7 @@ sensors:
         password: ""
         clientId: LYWSD03MMC_Subscriber
         keepAlive: 5
-        connectRetryDelay: 5s
+        qos: 0
       memphis:
         enabled: false
         hostname: 127.0.0.1:6666
@@ -48,7 +118,6 @@ sensors:
           password: ""
           clientId: LYWSD03MMC_Publisher
           keepAlive: 5
-          connectRetryDelay: 5s
           qos: 0
           retain: false
       - influxdb2:
@@ -78,45 +147,36 @@ sensors:
                 {{- else if or (eq (index .Properties "unit") "Humidity") (eq (index .Properties "unit") "Battery") -}}
                 _percent
                 {{- end -}}
-              description: "sensor value." # Templating supported
               namespace: "yasp"
               subsystem: "{{- index .Properties \"deviceType\" | ToLower -}}" # Templating supported
+              value: "{{ index .Properties \"value\" | ToNumber }}" # Templating supported
               labels:
                 device: "{{- index .Properties \"deviceName\" -}}" # Templating supported on both keys and values
                 deviceType: "{{- index .Properties \"deviceType\" -}}"
-              type: Gauge # Templating supported
-              value: "{{ index .Properties \"value\" | ToNumber }}" # Templating supported
-              condition: ""  # Templating supported
     # Individual mapping per unit example
     #            - name: Temperature
-    #              description: Temperature sensor value.
     #              namespace: ""
     #              subsystem: ""
+    #              value: "{{ index .Properties \"value\" | ToNumber }}"
     #              labels:
     #                device: "{{ index .Properties \"deviceName\" }}"
     #                deviceType: "{{ index .Properties \"deviceType\" }}"
-    #              type: Gauge
-    #              value: "{{ index .Properties \"value\" | ToNumber }}"
     #              condition: "{{ eq (index .Properties \"unit\") \"Temperature\" }}"
     #            - name: Humidity
-    #              description: Humidity sensor value.
     #              namespace: ""
     #              subsystem: ""
+    #              value: "{{ index .Properties \"value\" | ToNumber }}"
     #              labels:
     #                device: "{{ index .Properties \"deviceName\" }}"
     #                deviceType: "{{ index .Properties \"deviceType\" }}"
-    #              type: Gauge
-    #              value: "{{ index .Properties \"value\" | ToNumber }}"
     #              condition: "{{ eq (index .Properties \"unit\") \"Humidity\" }}"
     #            - name: Battery
-    #              description: Battery sensor value.
     #              namespace: ""
     #              subsystem: ""
+    #              value: "{{ index .Properties \"value\" | ToNumber }}"
     #              labels:
     #                device: "{{ index .Properties \"deviceName\" }}"
     #                deviceType: "{{ index .Properties \"deviceType\" }}"
-    #              type: Gauge
-    #              value: "{{ index .Properties \"value\" | ToNumber }}"
     #              condition: "{{- if eq (index .Properties \"unit\") \"Battery\" -}}true{{- else - }}false{{- end -}}"
     devices:
       - name: Your Sensor
@@ -135,54 +195,42 @@ sensors:
           - tcp://localhost:1883
         clientId: P1P2_Subscriber
         keepAlive: 5
-        connectRetryDelay: 5s
+        qos: 0
     outputs:
       - prometheus:
           enabled: true
           metricsMapping:
             - name: "temperature"
-              description: "p1p2 target temperature."
-              type: Gauge
               value: "{{ index .Properties \"temperature\" | ToNumber }}"
               namespace: "yasp"
               subsystem: "p1p2"
               labels:
                 device: "{{ index .Properties \"bridge\" }}"
             - name: "status"
-              description: "p1p2 operation status."
-              type: Gauge
               value: "{{ index .Properties \"status\" | ToNumber }}"
               namespace: "yasp"
               subsystem: "p1p2"
               labels:
                 device: "{{ index .Properties \"bridge\" }}"
             - name: "testMode"
-              description: "p1p2 test mode status."
-              type: Gauge
               value: "{{ index .Properties \"testMode\" | ToNumber }}"
               namespace: "yasp"
               subsystem: "p1p2"
               labels:
                 device: "{{ index .Properties \"bridge\" }}"
             - name: "errorCode"
-              description: "p1p2 error code."
-              type: Gauge
               value: "{{ index .Properties \"errorCode\" | ToNumber }}"
               namespace: "yasp"
               subsystem: "p1p2"
               labels:
                 device: "{{ index .Properties \"bridge\" }}"
             - name: "mode"
-              description: "p1p2 mode, 1 = cooling, 2 = heating."
-              type: Gauge
               value: "{{ index .Properties \"modeId\" | ToNumber }}"
               namespace: "yasp"
               subsystem: "p1p2"
               labels:
                 device: "{{ index .Properties \"bridge\" }}"
             - name: "fanSpeed"
-              description: "p1p2 fan speed, 1 = low, 2 = medium, 3 = high."
-              type: Gauge
               value: "{{ index .Properties \"fanSpeedId\" | ToNumber }}"
               namespace: "yasp"
               subsystem: "p1p2"
