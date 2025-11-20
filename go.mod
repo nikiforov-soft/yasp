@@ -1,6 +1,6 @@
 module github.com/nikiforov-soft/yasp
 
-go 1.24
+go 1.24.0
 
 require (
 	github.com/eclipse/paho.golang v0.22.0
@@ -42,9 +42,9 @@ require (
 	github.com/pschlump/godebug v1.0.4 // indirect
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
-	golang.org/x/crypto v0.33.0 // indirect
-	golang.org/x/net v0.35.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/text v0.22.0 // indirect
+	golang.org/x/crypto v0.45.0 // indirect
+	golang.org/x/net v0.47.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/text v0.31.0 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
 )
