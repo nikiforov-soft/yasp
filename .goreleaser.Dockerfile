@@ -1,4 +1,4 @@
-FROM alpine:3.18 as builder
+FROM alpine:3.22.2 as builder
 
 RUN apk --no-cache add ca-certificates
 
