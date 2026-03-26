@@ -1,6 +1,6 @@
 module github.com/nikiforov-soft/yasp
 
-go 1.25.0
+go 1.26.1
 
 require (
 	github.com/eclipse/paho.golang v0.23.0
